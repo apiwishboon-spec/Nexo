@@ -16,6 +16,17 @@ pushes/pulls changes over a small, documented BLE protocol.
 > voice memos, music playback, BLE and Wi-Fi features were verified on-device.
 > Native unit tests pass. See `docs/TROUBLESHOOTING.md` for known issues.
 
+<p align="center">
+  <img src="docs/images/home-cat.png" alt="Home with the orange cat" width="320">
+  <img src="docs/images/home-kid.png" alt="Home with the glasses kid" width="320">
+</p>
+
+A few more screens (Notes, Homework, Calculator, Timer, Settings, Music, Memos):
+
+<p align="center">
+  <img src="docs/images/contact-sheet.png" alt="Nexo UI screens" width="640">
+</p>
+
 ## Repository layout
 
 ```

@@ -290,14 +290,18 @@ constexpr int kArtW = 26;
 constexpr int kArtH = 26;
 constexpr int kArtScale = 3;
 
+// Orange tabby palette for the cat.
+constexpr uint16_t kFur = rgb(240, 158, 75);
+constexpr uint16_t kFurDark = rgb(201, 119, 46);
+
 // '#' outline  'f' fur  'F' fur shade  'e' eye  'u' pupil
 // 'p' pink     'h' hair 'g' glasses    'w' lens 's' skin   '.' transparent
-uint16_t artColor(char c)
+uint16_t artColor(char c, bool cat)
 {
     switch (c) {
-        case '#': return kPrimary;
-        case 'f': return kSurface;
-        case 'F': return kSurfaceVariant;
+        case '#': return cat ? kOutline : kPrimary;
+        case 'f': return cat ? kFur : kSurface;
+        case 'F': return cat ? kFurDark : kSurfaceVariant;
         case 'e': return kOnSurface;
         case 'u': return kBackground;
         case 'p': return kError;
@@ -310,7 +314,7 @@ uint16_t artColor(char c)
     }
 }
 
-void blitArt(const char* const* rows, int x, int y)
+void blitArt(const char* const* rows, int x, int y, bool cat)
 {
     auto& d = M5Cardputer.Display;
     for (int r = 0; r < kArtH; ++r) {
@@ -318,7 +322,7 @@ void blitArt(const char* const* rows, int x, int y)
         for (int c = 0; c < kArtW && line[c]; ++c) {
             if (line[c] == '.') continue;
             d.fillRect(x + c * kArtScale, y + r * kArtScale, kArtScale, kArtScale,
-                       artColor(line[c]));
+                       artColor(line[c], cat));
         }
     }
 }
@@ -327,8 +331,8 @@ void blitArt(const char* const* rows, int x, int y)
 void blinkCat(int x, int y)
 {
     auto& d = M5Cardputer.Display;
-    d.fillRect(x + 7 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kPrimary);
-    d.fillRect(x + 16 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kPrimary);
+    d.fillRect(x + 7 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kOutline);
+    d.fillRect(x + 16 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kOutline);
 }
 
 void blinkKid(int x, int y)
@@ -378,7 +382,7 @@ void Ui::drawCharacter(int x, int y, int w, int h)
     int bx = x + (w - kArtW * kArtScale) / 2;
     int by = y + (h - kArtH * kArtScale) / 2 + (int)((millis() / 500) % 2);
     bool kid = homeChar_ == 1;
-    blitArt(kid ? kKidArt : kCatArt, bx, by);
+    blitArt(kid ? kKidArt : kCatArt, bx, by, !kid);
     if ((millis() % 4000u) >= 3850u) {  // brief blink every ~4s
         if (kid) blinkKid(bx, by);
         else blinkCat(bx, by);
