@@ -10,6 +10,13 @@
 
 namespace nexo {
 
+// Lab-only: rotating advertised names for the BLE rickroll spammer.
+static const char* const kBleSpamNames[] = {
+    "Never Gonna Give You Up", "Rickroll",     "Never Gonna Let You Down",
+    "Get Rickrolled",          "And Desert You", "Never Gonna Run Around",
+};
+static const int kBleSpamNameCount = (int)(sizeof(kBleSpamNames) / sizeof(kBleSpamNames[0]));
+
 static bool isMutatingOp(uint8_t op)
 {
     switch (op) {
@@ -27,6 +34,7 @@ static bool isMutatingOp(uint8_t op)
 void BleService::begin(NexoApp* app, const std::string& deviceName)
 {
     app_ = app;
+    deviceName_ = deviceName;
     NimBLEDevice::init(deviceName);
     // P6 (+6 dBm) instead of P9: lower peak current avoids brown-out resets on
     // battery while still giving ample range for a phone on the same desk.
@@ -232,6 +240,7 @@ void BleService::refreshStatus()
 
 void BleService::loop()
 {
+    if (spamActive_) spamTick();
     if (pendingDisconnect_) {
         pendingDisconnect_ = false;
         if (app_) app_->service().onDisconnect();
@@ -247,6 +256,41 @@ void BleService::loop()
         flushTx();
     }
     if (statusDirty_) refreshStatus();
+}
+
+void BleService::startSpam()
+{
+    if (spamActive_) return;
+    spamActive_ = true;
+    spamIndex_ = 0;
+    spamNext_ = millis();
+    Serial.println("[lab] ble spam start");
+}
+
+void BleService::stopSpam()
+{
+    if (!spamActive_) return;
+    spamActive_ = false;
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (adv) {
+        adv->stop();
+        adv->setName(deviceName_);
+        adv->start();
+    }
+    Serial.println("[lab] ble spam stop");
+}
+
+void BleService::spamTick()
+{
+    uint32_t now = millis();
+    if ((int32_t)(now - spamNext_) < 0) return;
+    spamNext_ = now + 500;
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (!adv) return;
+    adv->stop();
+    adv->setName(kBleSpamNames[spamIndex_]);
+    adv->start();
+    if (++spamIndex_ >= kBleSpamNameCount) spamIndex_ = 0;
 }
 
 }  // namespace nexo

@@ -34,6 +34,11 @@ private:
         Settings,
         About,
         Music,
+        Clock,      // idle flip-clock screensaver
+        Lab,        // hidden tools menu
+        WifiScan,   // lab: AP scanner
+        SpamWifi,   // lab: beacon spam
+        SpamBle,    // lab: BLE name spam
     };
 
     // Rendering
@@ -59,6 +64,12 @@ private:
     void drawSettings();
     void drawAbout();
     void drawMusic();
+    void drawClock();
+    void drawLab();
+    void drawWifiScan();
+    void drawSpam(bool ble);
+    void drawCharacter(int x, int y, int w, int h);
+    void drawCheckbox(int x, int y, bool done);
     void toast();
     void wrappedText(const std::string& text, int x, int y, int w, int maxLines);
 
@@ -70,6 +81,12 @@ private:
     void openMenu();
     void openNotes();
     void openHomework();
+    void openLab();
+    void computeDueToday();
+    void toggleHwDone();
+    void loadPrefs();
+    void savePrefs();
+    bool secretReveal();  // types "hack" within 5s on Home to unlock the Lab
 
     // Editing helpers
     void startNewNote();
@@ -140,6 +157,22 @@ private:
     uint32_t lastActivity_ = 0;
     bool dimmed_ = false;
     bool asleep_ = false;
+
+    // Home layout: left pane shows either today's tasks or the character.
+    int homePane_ = 0;  // 0 = due today, 1 = character
+    std::vector<Homework> dueToday_;
+    Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
+    uint32_t petDrawAt_ = 0;
+    uint32_t clockMinute_ = 0xFFFFFFFFu;
+
+    // Screensaver + hidden Lab menu.
+    bool screensaver_ = false;
+    bool labUnlocked_ = false;
+    int labSel_ = 0;
+    int wifiScanSel_ = 0;
+    int wifiScanScroll_ = 0;
+    std::string hackBuf_;
+    uint32_t hackBufAt_ = 0;
 };
 
 }  // namespace nexo

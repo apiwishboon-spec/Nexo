@@ -49,7 +49,14 @@ public:
     bool consumePairedEvent();
     bool consumeSyncEvent();
 
+    // Lab tool: rotate the advertised name through rickroll lines. Only used
+    // from the hidden "hack" menu.
+    void startSpam();
+    void stopSpam();
+    bool spamActive() const { return spamActive_; }
+
 private:
+    void spamTick();
     void onConnect(NimBLEServer* server, ble_gap_conn_desc* desc) override;
     void onDisconnect(NimBLEServer* server, ble_gap_conn_desc* desc) override;
     void onWrite(NimBLECharacteristic* chr, ble_gap_conn_desc* desc) override;
@@ -91,6 +98,10 @@ private:
     uint32_t changeSeq_ = 0;
     uint32_t lastStatusMs_ = 0;
     std::string peerAddr_;
+    std::string deviceName_;
+    bool spamActive_ = false;
+    int spamIndex_ = 0;
+    uint32_t spamNext_ = 0;
 };
 
 }  // namespace nexo

@@ -36,6 +36,10 @@ class NexoApp {
 public:
     Repository& repo() { return repo_; }
     Settings& settings() { return settings_; }
+    uint32_t now() const { return now_; }
+
+    // Preview knob: set a fake epoch so the flip clock has something to show.
+    uint32_t now_ = 0;
 
 private:
     Repository repo_;

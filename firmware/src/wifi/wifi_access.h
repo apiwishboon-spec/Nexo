@@ -7,12 +7,23 @@
 #include <WebServer.h>
 #include <WiFi.h>
 
+#include <string>
+#include <vector>
+
 #include "app/nexo_app.h"
 
 namespace nexo {
 
 class WifiAccess {
 public:
+    // One nearby network from a scan (Lab tools).
+    struct ApInfo {
+        std::string ssid;
+        int8_t rssi = 0;
+        uint8_t channel = 0;
+        bool secure = false;
+    };
+
     void begin(NexoApp* app);
     void loop();
 
@@ -20,6 +31,18 @@ public:
     bool enabled() const { return enabled_; }
     String ipString() const;
     std::string apPassword() const { return apPassword_; }
+
+    // ---- Lab tools (hidden "hack" menu) ------------------------------------
+    // Async AP scan. Poll scanRunning() until false, then read scanResults().
+    void scanStart();
+    bool scanRunning() const { return scanning_; }
+    const std::vector<ApInfo>& scanResults() const { return scanResults_; }
+
+    // Fake-beacon broadcast using rickroll SSIDs. loop() drives the frame pump.
+    void startBeaconSpam();
+    void stopBeaconSpam();
+    bool beaconSpamActive() const { return spamming_; }
+    uint32_t spamFrames() const { return spamFrames_; }
 
 private:
     void applyEnabled();
@@ -69,6 +92,21 @@ private:
     bool otaStarted_ = false;
     bool otaOk_ = false;
     size_t otaWritten_ = 0;
+
+    // Lab: scan + beacon spam state.
+    void labTick();
+    void sendBeacon();
+
+    bool scanning_ = false;
+    bool scanRestoreAp_ = false;
+    std::vector<ApInfo> scanResults_;
+
+    bool spamming_ = false;
+    uint32_t spamFrames_ = 0;
+    uint32_t spamNext_ = 0;
+    int spamSsidIndex_ = 0;
+    uint8_t spamChannel_ = 1;
+    uint8_t spamBssid_[6] = {0};
 };
 
 }  // namespace nexo

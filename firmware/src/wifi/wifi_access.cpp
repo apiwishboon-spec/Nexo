@@ -5,13 +5,23 @@
 #include <ArduinoJson.h>
 #include <SD.h>
 #include <Update.h>
+#include <cstring>
 #include <esp_mac.h>
 #include <esp_random.h>
+#include <esp_wifi.h>
 
 #include "hw/audio.h"
 #include "nexo_codec.h"
 
 namespace nexo {
+
+// Lab-only: the SSIDs the beacon spoofer cycles through ("the rickroll one").
+static const char* const kSpamSsids[] = {
+    "Never Gonna Give You Up", "Never Gonna Let You Down", "Never Gonna Run Around",
+    "And Desert You",          "free wifi",                "get rickrolled",
+    "Loading...",              "sus",                      "Rickroll_5G",
+};
+static const int kSpamSsidCount = (int)(sizeof(kSpamSsids) / sizeof(kSpamSsids[0]));
 
 // Keep uploaded filenames safe: base name only, no separators, ASCII-ish.
 static String sanitizeMusicName(const String& raw)
@@ -184,6 +194,120 @@ void WifiAccess::applyEnabled()
     }
 }
 
+// ---- Lab tools -------------------------------------------------------------
+
+void WifiAccess::scanStart()
+{
+    // The radio can only scan from the STA interface, so tear the AP down and
+    // restore it once the async scan reports back (labTick).
+    scanRestoreAp_ = enabled_ && started_;
+    if (started_) {
+        if (server_) server_->stop();
+        WiFi.softAPdisconnect(true);
+        started_ = false;
+    }
+    scanResults_.clear();
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(false, false);
+    WiFi.scanNetworks(true /*async*/, false /*show hidden*/);
+    scanning_ = true;
+    Serial.println("[lab] wifi scan start");
+}
+
+void WifiAccess::labTick()
+{
+    if (scanning_) {
+        int n = WiFi.scanComplete();
+        if (n == -2) return;  // still running
+        if (n >= 0) {
+            for (int i = 0; i < n; ++i) {
+                ApInfo a;
+                a.ssid = WiFi.SSID(i).c_str();
+                if (a.ssid.empty()) a.ssid = "(hidden)";
+                a.rssi = (int8_t)WiFi.RSSI(i);
+                a.channel = (uint8_t)WiFi.channel(i);
+                a.secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+                scanResults_.push_back(a);
+            }
+            WiFi.scanDelete();
+        }
+        scanning_ = false;
+        if (scanRestoreAp_) applyEnabled();  // bring the AP back up
+        Serial.printf("[lab] wifi scan done: %u\n", (unsigned)scanResults_.size());
+    }
+
+    if (!spamming_) return;
+    uint32_t now = millis();
+    if ((int32_t)(now - spamNext_) < 0) return;
+    spamNext_ = now + 40;
+    sendBeacon();
+    if (++spamSsidIndex_ >= kSpamSsidCount) {
+        spamSsidIndex_ = 0;
+        if (++spamChannel_ > 11) spamChannel_ = 1;
+        esp_wifi_set_channel(spamChannel_, WIFI_SECOND_CHAN_NONE);
+    }
+}
+
+void WifiAccess::sendBeacon()
+{
+    const char* ssid = kSpamSsids[spamSsidIndex_];
+    size_t ssidLen = strlen(ssid);
+    if (ssidLen > 32) ssidLen = 32;
+
+    uint8_t frame[128];
+    size_t i = 0;
+    frame[i++] = 0x80;  // frame control: management / beacon
+    frame[i++] = 0x00;
+    frame[i++] = 0x00;  // duration
+    frame[i++] = 0x00;
+    for (int k = 0; k < 6; ++k) frame[i++] = 0xFF;           // DA: broadcast
+    for (int k = 0; k < 6; ++k) frame[i++] = spamBssid_[k];  // SA
+    for (int k = 0; k < 6; ++k) frame[i++] = spamBssid_[k];  // BSSID
+    frame[i++] = 0x00;  // sequence control
+    frame[i++] = 0x00;
+    for (int k = 0; k < 8; ++k) frame[i++] = 0x00;  // timestamp
+    frame[i++] = 0x64;  // beacon interval: 100 TU
+    frame[i++] = 0x00;
+    frame[i++] = 0x01;  // capability: ESS (open)
+    frame[i++] = 0x00;
+    frame[i++] = 0x00;  // SSID element
+    frame[i++] = (uint8_t)ssidLen;
+    memcpy(&frame[i], ssid, ssidLen);
+    i += ssidLen;
+    frame[i++] = 0x01;  // supported rates
+    frame[i++] = 0x08;
+    frame[i++] = 0x82; frame[i++] = 0x84; frame[i++] = 0x8b; frame[i++] = 0x96;
+    frame[i++] = 0x0c; frame[i++] = 0x12; frame[i++] = 0x18; frame[i++] = 0x24;
+    frame[i++] = 0x03;  // DS parameter: channel
+    frame[i++] = 0x01;
+    frame[i++] = spamChannel_;
+
+    esp_wifi_80211_tx(WIFI_IF_AP, frame, (int)i, false);
+    ++spamFrames_;
+}
+
+void WifiAccess::startBeaconSpam()
+{
+    if (spamming_) return;
+    if (!started_) setEnabled(true);  // raw tx needs a live netif
+    if (!started_) WiFi.mode(WIFI_STA);
+    for (int k = 0; k < 6; ++k) spamBssid_[k] = (uint8_t)(esp_random() & 0xFF);
+    spamBssid_[0] = (uint8_t)((spamBssid_[0] & 0xFE) | 0x02);  // locally administered
+    spamChannel_ = 1;
+    esp_wifi_set_channel(spamChannel_, WIFI_SECOND_CHAN_NONE);
+    spamming_ = true;
+    spamFrames_ = 0;
+    spamNext_ = millis();
+    Serial.println("[lab] beacon spam start");
+}
+
+void WifiAccess::stopBeaconSpam()
+{
+    if (!spamming_) return;
+    spamming_ = false;
+    Serial.printf("[lab] beacon spam stop (%u frames)\n", (unsigned)spamFrames_);
+}
+
 void WifiAccess::setupRoutes()
 {
     if (server_) return;
@@ -214,6 +338,7 @@ void WifiAccess::setupRoutes()
 void WifiAccess::loop()
 {
     if (enabled_ && started_ && server_) server_->handleClient();
+    labTick();
 }
 
 bool WifiAccess::tokenMatches()

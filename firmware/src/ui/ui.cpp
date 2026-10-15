@@ -3,6 +3,7 @@
 #include "ui.h"
 
 #include <M5Cardputer.h>
+#include <Preferences.h>
 
 #include <cstdio>
 #include <cstring>
@@ -24,7 +25,9 @@ static const int kContentBottom = kH - 4;
 static const int kRowH = 23;
 
 // Auto-sleep tuning: dim after 15s idle, panel off after 45s. Any key wakes.
+// When the screensaver is enabled the flip clock replaces the dim/sleep path.
 static const uint32_t kDimIdleMs = 15000;
+static const uint32_t kClockIdleMs = 15000;
 static const uint32_t kSleepIdleMs = 45000;
 static const uint8_t kActiveBrightness = 128;
 static const uint8_t kDimBrightness = 45;
@@ -54,6 +57,7 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
     splashUntil_ = millis() + 1600;
     sel_ = 0;
     lastActivity_ = millis();
+    loadPrefs();
     dirty_ = true;
 }
 
@@ -227,40 +231,84 @@ void Ui::drawField(int y, const std::string& label, const std::string& value, bo
 void Ui::drawMenu()
 {
     auto& d = M5Cardputer.Display;
-    drawHeader("Nexo");
-    const int gap = 5;
+    computeDueToday();
+    int due = (int)dueToday_.size();
+    drawHeader("Nexo", due > 0 ? (std::to_string(due) + " due") : std::string());
+
     const int top = kContentTop;
     const int bottom = kContentBottom;
-    int count = (int)menuItems_.size();
-    const int colW = (kW - 2 * kPad - gap) / 2;
-    int rows = (count + 1) / 2;
-    if (rows < 1) rows = 1;
-    const int rowH = (bottom - top - (rows - 1) * gap) / rows;
+
+    // ---- Left pane: today's tasks, or the character ------------------------
+    const int leftX = kPad;
+    const int leftW = 86;
+    if (homePane_ == 1) {
+        drawCharacter(leftX, top, leftW, bottom - top);
+    } else {
+        d.setTextColor(kOnSurfaceVariant, kBackground);
+        d.setCursor(leftX, top);
+        d.print("TODAY");
+        int y = top + 12;
+        if (dueToday_.empty()) {
+            d.setCursor(leftX, y + 8);
+            d.print("all clear");
+        } else {
+            int maxRows = (bottom - y) / 12;
+            for (int i = 0; i < due && i < maxRows; ++i) {
+                const Homework& h = dueToday_[i];
+                bool done = h.status == HomeworkStatus::Done;
+                drawCheckbox(leftX, y + 2, done);
+                std::string t = h.subject.empty() ? "(task)" : h.subject;
+                if (t.size() > 15) t = t.substr(0, 14) + "~";
+                d.setTextColor(done ? kOnSurfaceVariant : kOnSurface, kBackground);
+                d.setCursor(leftX + 12, y);
+                d.print(t.c_str());
+                y += 12;
+            }
+        }
+    }
+
+    // ---- Right pane: the app list ------------------------------------------
+    const int rx = 96;
+    const int rw = kW - rx - kPad;
+    const int rowh = 13, gap = 2;
     for (int i = 0; i < (int)menuItems_.size(); ++i) {
-        int col = i % 2, row = i / 2;
-        int x = kPad + col * (colW + gap);
-        int y = top + row * (rowH + gap);
+        int y = top + i * (rowh + gap);
         bool selected = i == sel_;
         uint16_t bg = selected ? kPrimary : kSurface;
         uint16_t fg = selected ? kOnPrimary : kOnSurface;
-        d.fillRoundRect(x, y, colW, rowH, kRadius, bg);
-        if (!selected) d.drawRoundRect(x, y, colW, rowH, kRadius, kOutline);
-
-        // Number in a small chip, label beside it on one line and vertically
-        // centred - avoids the number/label overlap tiny tiles used to have.
-        int cy = y + (rowH - 8) / 2;
-        d.fillRoundRect(x + 5, cy - 1, 13, 10, 3,
-                        selected ? kOnPrimary : kSurfaceVariant);
-        char num[4];
-        snprintf(num, sizeof(num), "%d", i + 1);
-        d.setTextColor(selected ? kPrimary : kOnSurfaceVariant,
-                       selected ? kOnPrimary : kSurfaceVariant);
-        d.setCursor(x + 8, cy);
-        d.print(num);
+        d.fillRoundRect(rx, y, rw, rowh, 4, bg);
+        if (!selected) d.drawRoundRect(rx, y, rw, rowh, 4, kOutline);
         d.setTextColor(fg, bg);
-        d.setCursor(x + 22, cy);
+        d.setCursor(rx + 6, y + 3);
         d.print(menuItems_[i].c_str());
     }
+}
+
+// An 8-bit blob that bobs and blinks; a friendly face for the Home pane.
+void Ui::drawCharacter(int x, int y, int w, int h)
+{
+    auto& d = M5Cardputer.Display;
+    const int bw = 46, bh = 48;
+    int bx = x + (w - bw) / 2;
+    int by = y + (h - bh) / 2 + (int)((millis() / 500) % 2);
+    d.fillRoundRect(bx, by, bw, bh, 9, kSurfaceVariant);
+    d.drawRoundRect(bx, by, bw, bh, 9, kPrimary);
+    bool blink = ((millis() / 2000) % 4) == 0;
+    if (blink) {
+        d.fillRect(bx + 12, by + 18, 8, 2, kPrimary);
+        d.fillRect(bx + 26, by + 18, 8, 2, kPrimary);
+    } else {
+        d.fillRect(bx + 13, by + 15, 6, 8, kPrimary);
+        d.fillRect(bx + 27, by + 15, 6, 8, kPrimary);
+    }
+    d.fillRect(bx + 17, by + 32, 12, 2, kOnSurfaceVariant);
+}
+
+void Ui::drawCheckbox(int x, int y, bool done)
+{
+    auto& d = M5Cardputer.Display;
+    d.drawRect(x, y, 8, 8, done ? kSuccess : kOutline);
+    if (done) d.fillRect(x + 2, y + 2, 4, 4, kSuccess);
 }
 
 void Ui::drawNotes()
@@ -327,6 +375,7 @@ void Ui::drawHomework()
         std::string due = hwList_[i].dueEpochDay ? dueDayToIso(hwList_[i].dueEpochDay) : "-";
         std::string sub = std::string(st[(int)hwList_[i].status]) + "   due " + due;
         drawListRow(y, kRowH, subject, sub, i == hwSel_);
+        drawCheckbox(kW - kPad - 14, y + 8, hwList_[i].status == HomeworkStatus::Done);
         y += kRowH + 1;
     }
 }
@@ -407,6 +456,9 @@ void Ui::drawSettings()
         "AP SSID: " + s.apSsid,
         "Wi-Fi IP: " + std::string(wifi_ ? wifi_->ipString().c_str() : "-"),
         "AP pass: " + std::string(wifi_ ? wifi_->apPassword().c_str() : "-"),
+        std::string("Home pane: ") + (homePane_ == 1 ? "Character" : "Due today"),
+        std::string("Screensaver: ") + (screensaver_ ? "Flip clock" : "Off"),
+        std::string("Lab tools: ") + (labUnlocked_ ? "unlocked" : "locked"),
         "Save & persist",
     };
     const int visible = 7;
@@ -487,6 +539,120 @@ void Ui::drawMusic()
     }
 }
 
+void Ui::drawClock()
+{
+    auto& d = M5Cardputer.Display;
+    d.fillScreen(kBackground);
+    int32_t tz = app_->settings().timezoneOffsetMin;
+    uint32_t epoch = app_->now();
+    bool synced = epoch > 1600000000u;  // sanity: after 2020
+    char hhmm[8];
+    uint32_t localDay = 0;
+    int weekday = 0;
+    if (synced) {
+        uint32_t l = (uint32_t)((int64_t)epoch + (int64_t)tz * 60);
+        snprintf(hhmm, sizeof(hhmm), "%02d:%02d", (l / 3600) % 24, (l / 60) % 60);
+        localDay = l / 86400u;
+        weekday = (int)((localDay + 4) % 7);  // 1970-01-01 was a Thursday
+    } else {
+        snprintf(hhmm, sizeof(hhmm), "--:--");
+    }
+
+    const int cw = 208, ch = 88;
+    int cx = (kW - cw) / 2, cy = 10;
+    d.fillRoundRect(cx, cy, cw, ch, 12, kSurface);
+    d.setTextSize(4);
+    d.setTextColor(kPrimary, kSurface);
+    int tw = (int)strlen(hhmm) * 24;
+    d.setCursor(cx + (cw - tw) / 2, cy + (ch - 32) / 2);
+    d.print(hhmm);
+    d.setTextSize(1);
+    d.fillRect(cx, cy + ch / 2, cw, 2, kBackground);  // flip hinge
+
+    static const char* wd[7] = {"Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"};
+    std::string line =
+        synced ? (std::string(wd[weekday]) + "  " + dueDayToIso(localDay))
+               : std::string("waiting for time sync");
+    d.setTextColor(kOnSurfaceVariant, kBackground);
+    d.setCursor((kW - (int)line.size() * 6) / 2, cy + ch + 7);
+    d.print(line.c_str());
+}
+
+void Ui::drawLab()
+{
+    auto& d = M5Cardputer.Display;
+    drawHeader("Lab");
+    d.setTextColor(kError, kBackground);
+    d.setCursor(kPad, kContentTop);
+    d.print("Your own gear only. Be nice.");
+    const char* items[3] = {"Wi-Fi Scanner", "Wi-Fi Spam (Rickroll)",
+                            "BLE Spam (Rickroll)"};
+    int y = kContentTop + 12;
+    for (int i = 0; i < 3; ++i) {
+        bool selected = i == labSel_;
+        uint16_t bg = selected ? kSurfaceVariant : kSurface;
+        d.fillRoundRect(kPad, y, kW - 2 * kPad, 14, kRadius, bg);
+        if (selected) d.fillRect(kPad, y, 3, 14, kPrimary);
+        d.setTextColor(selected ? kPrimary : kOnSurface, bg);
+        d.setCursor(kPad + 8, y + 4);
+        d.print(items[i]);
+        y += 16;
+    }
+}
+
+void Ui::drawWifiScan()
+{
+    auto& d = M5Cardputer.Display;
+    if (wifi_->scanRunning()) {
+        drawHeader("Wi-Fi scan");
+        d.setTextColor(kOnSurfaceVariant, kBackground);
+        d.setCursor(kPad, 40);
+        d.print("Scanning...");
+        return;
+    }
+    const auto& res = wifi_->scanResults();
+    drawHeader("Wi-Fi", std::to_string(res.size()));
+    if (res.empty()) {
+        drawEmptyState("No networks - press R");
+        return;
+    }
+    const int visible = 4;
+    if (wifiScanSel_ < wifiScanScroll_) wifiScanScroll_ = wifiScanSel_;
+    if (wifiScanSel_ >= wifiScanScroll_ + visible)
+        wifiScanScroll_ = wifiScanSel_ - visible + 1;
+    int y = kContentTop;
+    for (int i = wifiScanScroll_; i < (int)res.size() && i < wifiScanScroll_ + visible; ++i) {
+        std::string ssid = res[i].ssid.empty() ? "(hidden)" : res[i].ssid;
+        if (ssid.size() > 26) ssid = ssid.substr(0, 25) + "~";
+        char sub[48];
+        snprintf(sub, sizeof(sub), "ch%d  %ddBm  %s", res[i].channel, (int)res[i].rssi,
+                 res[i].secure ? "lock" : "open");
+        drawListRow(y, kRowH, ssid, sub, i == wifiScanSel_);
+        y += kRowH + 1;
+    }
+}
+
+void Ui::drawSpam(bool ble)
+{
+    auto& d = M5Cardputer.Display;
+    drawHeader(ble ? "BLE spam" : "Wi-Fi spam");
+    d.setTextColor(kPrimary, kBackground);
+    d.setTextSize(2);
+    d.setCursor(kPad, 34);
+    d.print("Broadcasting");
+    d.setTextSize(1);
+    d.setTextColor(kOnSurfaceVariant, kBackground);
+    char buf[48];
+    if (ble)
+        snprintf(buf, sizeof(buf), "rickroll BLE names");
+    else
+        snprintf(buf, sizeof(buf), "%u frames sent", (unsigned)wifi_->spamFrames());
+    d.setCursor(kPad, 58);
+    d.print(buf);
+    d.setCursor(kPad, 74);
+    d.print("ESC to stop");
+}
+
 void Ui::toast()
 {
     if (toast_.empty() || millis() > toastUntil_) {
@@ -519,6 +685,11 @@ void Ui::draw()
         case Screen::Settings: drawSettings(); break;
         case Screen::About: drawAbout(); break;
         case Screen::Music: drawMusic(); break;
+        case Screen::Clock: drawClock(); break;
+        case Screen::Lab: drawLab(); break;
+        case Screen::WifiScan: drawWifiScan(); break;
+        case Screen::SpamWifi: drawSpam(false); break;
+        case Screen::SpamBle: drawSpam(true); break;
     }
     toast();
     dirty_ = false;
@@ -566,6 +737,88 @@ void Ui::openHomework()
     hwSel_ = 0;
     hwScroll_ = 0;
     screen_ = Screen::Homework;
+}
+
+void Ui::openLab()
+{
+    labSel_ = 0;
+    screen_ = Screen::Lab;
+}
+
+// Homework that is unfinished and due today (or overdue) powers the Home pane.
+void Ui::computeDueToday()
+{
+    dueToday_.clear();
+    uint32_t localDay =
+        (uint32_t)((int64_t)app_->now() + (int64_t)app_->settings().timezoneOffsetMin * 60) /
+        86400u;
+    for (const auto& h : app_->repo().homework()) {
+        if (h.deleted || h.dueEpochDay == 0) continue;
+        if (h.status == HomeworkStatus::Done) continue;
+        if (h.dueEpochDay <= localDay) dueToday_.push_back(h);
+    }
+}
+
+void Ui::toggleHwDone()
+{
+    if (hwList_.empty()) return;
+    Homework h = hwList_[hwSel_];
+    h.status = (h.status == HomeworkStatus::Done) ? HomeworkStatus::NotStarted
+                                                  : HomeworkStatus::Done;
+    Homework stored;
+    RepoStatus st = app_->repo().putHomework(h, h.rev, stored);
+    if (st == RepoStatus::Ok) {
+        hwList_[hwSel_].status = stored.status;
+        hwList_[hwSel_].rev = stored.rev;
+        if (ble_) ble_->notifyDataChanged();
+        notify(h.status == HomeworkStatus::Done ? "Done" : "Reopened");
+    } else {
+        notify("Update failed");
+    }
+}
+
+void Ui::loadPrefs()
+{
+    Preferences p;
+    p.begin("nexoui", true);
+    homePane_ = p.getUChar("homepane", 0);
+    screensaver_ = p.getBool("screensaver", false);
+    labUnlocked_ = p.getBool("lab", false);
+    p.end();
+}
+
+void Ui::savePrefs()
+{
+    Preferences p;
+    p.begin("nexoui", false);
+    p.putUChar("homepane", (uint8_t)homePane_);
+    p.putBool("screensaver", screensaver_);
+    p.putBool("lab", labUnlocked_);
+    p.end();
+}
+
+// Typing "hack" on Home (each key within 5s of the last) unlocks the Lab.
+bool Ui::secretReveal()
+{
+    auto ks = M5Cardputer.Keyboard.keysState();
+    uint32_t now = millis();
+    bool fired = false;
+    for (char c : ks.word) {
+        char lc = (c >= 'A' && c <= 'Z') ? (char)(c + 32) : c;
+        if (now - hackBufAt_ > 5000u) hackBuf_.clear();
+        hackBufAt_ = now;
+        hackBuf_.push_back(lc);
+        if (hackBuf_.size() > 4) hackBuf_.erase(0, hackBuf_.size() - 4);
+        if (hackBuf_ == "hack") {
+            hackBuf_.clear();
+            labUnlocked_ = true;
+            savePrefs();
+            audioBeep(1200, 90);
+            notify("Lab unlocked");
+            fired = true;
+        }
+    }
+    return fired;
 }
 
 void Ui::startNewNote()
@@ -660,7 +913,18 @@ void Ui::noteActivity()
 void Ui::updatePower()
 {
     if (asleep_) return;
+    if (screen_ == Screen::Clock) return;  // the screensaver owns the panel
     uint32_t idle = millis() - lastActivity_;
+    // With the screensaver on, idle drops into the flip clock instead of a
+    // black screen (except while a lab tool is actively running).
+    if (screensaver_ && screen_ != Screen::Splash && screen_ != Screen::SpamWifi &&
+        screen_ != Screen::SpamBle && idle >= kClockIdleMs) {
+        prevScreen_ = screen_;
+        screen_ = Screen::Clock;
+        clockMinute_ = 0xFFFFFFFFu;
+        dirty_ = true;
+        return;
+    }
     if (idle >= kSleepIdleMs) {
         M5Cardputer.Display.setBrightness(0);
         M5Cardputer.Display.sleep();
@@ -679,6 +943,13 @@ void Ui::handleKeys()
     // While the panel is off, the first key only wakes it (does not act).
     if (asleep_) {
         noteActivity();
+        return;
+    }
+    // The screensaver hands the panel back to whatever was on screen before.
+    if (screen_ == Screen::Clock) {
+        noteActivity();
+        screen_ = prevScreen_;
+        dirty_ = true;
         return;
     }
     noteActivity();
@@ -717,13 +988,10 @@ void Ui::handleKeys()
 
     switch (screen_) {
         case Screen::Home: {
-            // Home is a 2-column grid: Left/Right move within a row,
-            // Up/Down move between rows (wrapping).
+            const bool revealed = secretReveal();
             const int n = (int)menuItems_.size();
-            if (navUp) sel_ = (sel_ + n - 2) % n;
-            if (navDown) sel_ = (sel_ + 2) % n;
-            if (navLeft && (sel_ % 2) == 1) sel_--;
-            if (navRight && (sel_ % 2) == 0 && sel_ + 1 < n) sel_++;
+            if (navUp && sel_ > 0) sel_--;
+            if (navDown && sel_ < n - 1) sel_++;
             bool hotkey = false;
             for (char c : ks.word) {
                 if (c >= '1' && c <= '9' && (c - '1') < (int)menuItems_.size()) {
@@ -731,6 +999,7 @@ void Ui::handleKeys()
                     hotkey = true;
                 }
             }
+            if (revealed) break;  // just unlocked the Lab; don't open a tile too
             if (ks.enter || hotkey) openMenu();
             break;
         }
@@ -770,6 +1039,7 @@ void Ui::handleKeys()
         case Screen::Homework: {
             if (navUp && hwSel_ > 0) hwSel_--;
             if (navDown && hwSel_ + 1 < (int)hwList_.size()) hwSel_++;
+            if (ks.space) toggleHwDone();
             if (ks.enter) {
                 if (hwList_.empty()) startNewHomework();
                 else startEditHomework(hwList_[hwSel_]);
@@ -868,7 +1138,7 @@ void Ui::handleKeys()
             break;
         }
         case Screen::Settings: {
-            const int rows = 9;
+            const int rows = 12;
             if (navUp && settingsSel_ > 0) settingsSel_--;
             if (navDown && settingsSel_ < rows - 1) settingsSel_++;
             if (settingsSel_ == 3) {
@@ -880,6 +1150,14 @@ void Ui::handleKeys()
                     audioSetVolume((uint8_t)(audioVolume() + 5));
                     audioBeep(880, 60);
                 }
+            }
+            if (settingsSel_ == 8 && (navLeft || navRight)) {
+                homePane_ = homePane_ ? 0 : 1;
+                savePrefs();
+            }
+            if (settingsSel_ == 9 && (navLeft || navRight)) {
+                screensaver_ = !screensaver_;
+                savePrefs();
             }
             if (ks.enter) {
                 if (settingsSel_ == 2) {
@@ -900,6 +1178,18 @@ void Ui::handleKeys()
                     editBuffer_.clear();
                     editingText_ = true;
                 } else if (settingsSel_ == 8) {
+                    homePane_ = homePane_ ? 0 : 1;
+                    savePrefs();
+                    notify(homePane_ ? "Pane: character" : "Pane: due today");
+                } else if (settingsSel_ == 9) {
+                    screensaver_ = !screensaver_;
+                    savePrefs();
+                    notify(screensaver_ ? "Screensaver on" : "Screensaver off");
+                } else if (settingsSel_ == 10) {
+                    labUnlocked_ = true;
+                    savePrefs();
+                    openLab();
+                } else if (settingsSel_ == 11) {
                     app_->repo().persistSettings();
                     notify("Persisted");
                 }
@@ -932,6 +1222,51 @@ void Ui::handleKeys()
                 }
             }
             if (ks.esc) gotoHome();
+            break;
+        }
+        case Screen::Lab: {
+            if (navUp && labSel_ > 0) labSel_--;
+            if (navDown && labSel_ < 2) labSel_++;
+            if (ks.enter) {
+                if (labSel_ == 0) {
+                    wifiScanSel_ = 0;
+                    wifiScanScroll_ = 0;
+                    wifi_->scanStart();
+                    screen_ = Screen::WifiScan;
+                } else if (labSel_ == 1) {
+                    wifi_->startBeaconSpam();
+                    screen_ = Screen::SpamWifi;
+                } else {
+                    ble_->startSpam();
+                    screen_ = Screen::SpamBle;
+                }
+            }
+            if (ks.esc) gotoHome();
+            break;
+        }
+        case Screen::WifiScan: {
+            if (!wifi_->scanRunning()) {
+                if (navUp && wifiScanSel_ > 0) wifiScanSel_--;
+                if (navDown && wifiScanSel_ + 1 < (int)wifi_->scanResults().size())
+                    wifiScanSel_++;
+            }
+            for (char c : ks.word)
+                if (c == 'r' || c == 'R') wifi_->scanStart();
+            if (ks.esc) screen_ = Screen::Lab;
+            break;
+        }
+        case Screen::SpamWifi: {
+            if (ks.esc) {
+                wifi_->stopBeaconSpam();
+                screen_ = Screen::Lab;
+            }
+            break;
+        }
+        case Screen::SpamBle: {
+            if (ks.esc) {
+                ble_->stopSpam();
+                screen_ = Screen::Lab;
+            }
             break;
         }
     }
@@ -974,6 +1309,18 @@ void Ui::loop()
     if (dirty_ && !asleep_) draw();
     // Live-updating screens.
     if (screen_ == Screen::Timer && timerRunning_ && !asleep_) drawTimer();
+    if (screen_ == Screen::Clock && !asleep_) {
+        uint32_t m = app_->now() / 60u;
+        if (m != clockMinute_) {
+            clockMinute_ = m;
+            draw();
+        }
+    }
+    if (screen_ == Screen::Home && homePane_ == 1 && !asleep_ &&
+        millis() - petDrawAt_ > 400u) {
+        petDrawAt_ = millis();
+        draw();
+    }
     updatePower();
 }
 
