@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Build artifacts (published via GitHub Releases instead)
+dist/
+
+# PlatformIO
+firmware/.pio/
+
+# Emulator/preview build output
+firmware/tools/preview/out/
+
+# Python
+__pycache__/
+*.pyc

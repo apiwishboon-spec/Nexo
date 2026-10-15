@@ -1,0 +1,14 @@
+{
+  "name": "nexo_core",
+  "version": "1.0.0",
+  "description": "Portable Nexo data model, storage, protocol codec and sync engine",
+  "keywords": "nexo, protocol, sync, esp32",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": "src"
+  },
+  "dependencies": {
+    "bblanchon/ArduinoJson": "^7.0.4"
+  }
+}

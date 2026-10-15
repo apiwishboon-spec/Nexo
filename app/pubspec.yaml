@@ -1,0 +1,47 @@
+name: nexo_app
+description: "Nexo companion app: manage Cardputer notes and homework over BLE."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # Native BLE across Android / macOS (uses CoreBluetooth on Apple platforms).
+  flutter_blue_plus: ^1.35.0
+  # Local cache for unsynchronized changes.
+  shared_preferences: ^2.3.0
+  # Simple state management.
+  provider: ^6.1.2
+  # Pick audio files to upload to the device over Wi-Fi.
+  file_selector: ^1.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/
+  fonts:
+    - family: PressStart2P
+      fonts:
+        - asset: assets/fonts/PressStart2P-Regular.ttf
+    - family: VT323
+      fonts:
+        - asset: assets/fonts/VT323-Regular.ttf
+
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/branding/app-logo.png"
+  adaptive_icon_background: "#121316"
+  adaptive_icon_foreground: "assets/branding/app-icon-foreground.png"
+  macos:
+    generate: true
+    image_path: "assets/branding/app-logo.png"
