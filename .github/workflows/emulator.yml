@@ -1,0 +1,49 @@
+name: Emulator (WASM)
+
+# Builds the real firmware UI to WebAssembly for the website and commits the
+# artifacts into website/assets/emu/. Runs on changes to the shared UI so the
+# in-browser emulator stays in sync with the firmware.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/src/ui/**'
+      - 'firmware/src/hw/**'
+      - 'firmware/lib/nexo_core/**'
+      - 'firmware/tools/preview/**'
+      - '.github/workflows/emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wasm:
+    name: Build web emulator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.61
+
+      - name: Build WASM
+        run: bash firmware/tools/preview/build_wasm.sh
+
+      - name: Commit artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/assets/emu
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(web): rebuild emulator wasm"
+            git push origin HEAD:main
+          fi

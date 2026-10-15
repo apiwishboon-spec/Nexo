@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emulator — Nexo</title>
+  <meta name="description" content="Try the Nexo Cardputer interface in your browser. The real firmware UI, compiled to WebAssembly." />
+  <link rel="icon" href="assets/img/logo.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap nav">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" /> NEXO</a>
+      <span class="spacer"></span>
+      <a class="link" href="index.html">Home</a>
+      <a class="link" href="download.html">Download</a>
+      <a class="link" href="docs.html">Docs</a>
+      <a class="link active" href="emulator.html">Emulator</a>
+      <a class="link" href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" style="padding-bottom:24px">
+      <div>
+        <h1>TRY IT IN<br />YOUR BROWSER.</h1>
+        <p class="lead">This is the <strong>real firmware UI</strong>, compiled to
+          WebAssembly. It runs the exact same screen code as the Cardputer.</p>
+        <p class="muted">Use the on-screen keys, your keyboard, or type to send
+          characters. Nothing is uploaded — it all runs locally in this tab.</p>
+      </div>
+      <div style="text-align:center">
+        <img class="art" src="assets/img/firmware-logo.png" alt="Nexo" />
+      </div>
+    </section>
+
+    <hr class="pixel-divider" />
+
+    <section class="tight">
+      <div class="emu" id="emu">
+        <div class="emu-device">
+          <div class="emu-screen">
+            <canvas id="emu-canvas" width="240" height="135"></canvas>
+          </div>
+          <div class="emu-hint" id="emu-status">Loading emulator…</div>
+        </div>
+
+        <div class="emu-controls">
+          <h3>Controls</h3>
+          <p class="muted">Tap to drive the device. The keyboard works too.</p>
+
+          <div class="emu-pad">
+            <button class="key ghost" tabindex="-1"></button>
+            <button class="key" data-key="up">UP</button>
+            <button class="key ghost" tabindex="-1"></button>
+
+            <button class="key" data-key="left">LEFT</button>
+            <button class="key" data-key="down">DOWN</button>
+            <button class="key" data-key="right">RIGHT</button>
+
+            <button class="key" data-key="esc">ESC</button>
+            <button class="key span2" data-key="enter">ENTER</button>
+
+            <button class="key" data-key="tab">TAB</button>
+            <button class="key span2" data-key="space">SPACE</button>
+
+            <button class="key span2" data-key="backspace">BKSP</button>
+            <button class="key" data-key="del">DEL</button>
+          </div>
+
+          <label class="label" for="emu-input">Type</label>
+          <input id="emu-input" class="emu-input" type="text" autocomplete="off"
+                 autocapitalize="off" spellcheck="false" placeholder="Type here to send characters…" />
+
+          <p class="note" style="margin-top:16px">The emulator shows the notes,
+            homework, calculator, timer, music and settings screens. Music is
+            empty here because there is no SD card in your browser.</p>
+
+          <noscript><p class="muted">Enable JavaScript to use the emulator.</p></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="tight" style="text-align:center">
+      <div class="panel" style="padding:32px">
+        <h2>Want it on real hardware?</h2>
+        <p class="muted">Flash the firmware to an M5Stack Cardputer and pair the
+          Android or macOS app.</p>
+        <div class="btn-row" style="justify-content:center">
+          <a class="btn primary" href="download.html">Download Nexo</a>
+          <a class="btn" href="docs.html">Read the docs</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap cols">
+      <div>© 2026 Apiwish Anutravanichkul · AGPL-3.0-or-later</div>
+      <div>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> ·
+        <a href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/emu/nexo_emu.js"></script>
+  <script src="assets/js/emulator.js"></script>
+</body>
+</html>
