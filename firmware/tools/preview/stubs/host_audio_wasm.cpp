@@ -75,4 +75,26 @@ void musicPrev() {
     musicPlay((s_index < 0) ? 0 : (s_index - 1 + n) % n);
 }
 
+// Voice memos: no mic or SD in the browser, so everything is a no-op and the
+// Memo screen shows its real empty state.
+bool memoBegin() { return false; }
+void memoScan() {}
+int memoCount() { return 0; }
+const char* memoTitle(int) { return ""; }
+uint32_t memoSize(int) { return 0; }
+bool memoSdReady() { return false; }
+bool memoRecording() { return false; }
+uint32_t memoSeconds() { return 0; }
+bool memoRecordStart() { return false; }
+void memoRecordTick() {}
+bool memoRecordStop() { return false; }
+bool memoDelete(int) { return false; }
+void memoPlay(int) {}
+void memoTogglePlay() {}
+void memoStopPlayback() {}
+bool memoPlaying() { return false; }
+int memoIndex() { return -1; }
+uint32_t memoPositionSec() { return 0; }
+uint32_t memoDurationSec() { return 0; }
+
 }  // namespace nexo

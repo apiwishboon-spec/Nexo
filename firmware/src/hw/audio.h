@@ -38,4 +38,32 @@ bool musicDelete(const char* name);
 void musicRescan();
 void musicSetAutoAdvance(bool on);
 
+// Voice memos: the ES8311 microphone captured into 16 kHz mono WAVs under
+// /memos on the microSD card.
+//
+// Recording takes I2S port 0 away from the decoder for its duration (the
+// legacy ESP32-audioI2S driver is released, M5's mic installs its own, and
+// the handover back runs codecConfigure()). Playback goes through the normal
+// decoder, so a memo is only playable while the recorder is idle.
+bool memoBegin();  // mkdir + scan /memos; false when there is no SD card
+void memoScan();
+int memoCount();
+const char* memoTitle(int index);
+uint32_t memoSize(int index);
+bool memoSdReady();
+bool memoRecording();
+uint32_t memoSeconds();  // elapsed seconds of the current recording
+bool memoRecordStart();
+void memoRecordTick();   // pull one mic chunk to the card (call from loop)
+bool memoRecordStop();   // finalise the WAV and hand I2S back to the decoder
+bool memoDelete(int index);
+
+void memoPlay(int index);
+void memoTogglePlay();
+void memoStopPlayback();
+bool memoPlaying();
+int memoIndex();
+uint32_t memoPositionSec();
+uint32_t memoDurationSec();
+
 }  // namespace nexo

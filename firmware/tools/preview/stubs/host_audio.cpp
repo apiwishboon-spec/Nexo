@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include <cctype>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -109,6 +110,24 @@ void startPlayback(const std::string& path)
     if (p > 0) s_pid = p;
 }
 
+// Voice memos: no mic or SD here, so a recording is simulated with a stopwatch
+// and appended to an in-memory list; playback is silent. The Memo screen stays
+// fully navigable in the emulator.
+std::vector<std::string> s_memos;
+std::vector<uint32_t> s_memoSizes;
+bool s_memoRecording = false;
+uint32_t s_memoStartMs = 0;
+int s_memoIndex = -1;
+bool s_memoPlaying = false;
+
+uint32_t hostNowMs()
+{
+    static const auto t0 = std::chrono::steady_clock::now();
+    return (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - t0)
+        .count();
+}
+
 }  // namespace
 
 void audioBegin() {}
@@ -170,5 +189,73 @@ void musicPrev() {
     int n = (int)s_tracks.size();
     musicPlay((s_index < 0) ? 0 : (s_index - 1 + n) % n);
 }
+
+bool memoBegin() { return true; }
+void memoScan() {}
+int memoCount() { return (int)s_memos.size(); }
+const char* memoTitle(int index) {
+    return (index >= 0 && index < (int)s_memos.size()) ? s_memos[index].c_str() : "";
+}
+uint32_t memoSize(int index) {
+    return (index >= 0 && index < (int)s_memoSizes.size()) ? s_memoSizes[index] : 0;
+}
+bool memoSdReady() { return true; }
+bool memoRecording() { return s_memoRecording; }
+uint32_t memoSeconds() {
+    return s_memoRecording ? (hostNowMs() - s_memoStartMs) / 1000u : 0u;
+}
+bool memoRecordStart() {
+    if (s_memoRecording) return false;
+    s_memoRecording = true;
+    s_memoStartMs = hostNowMs();
+    std::fprintf(stderr, "[memo record start]\n");
+    return true;
+}
+void memoRecordTick() {}
+bool memoRecordStop() {
+    if (!s_memoRecording) return false;
+    s_memoRecording = false;
+    uint32_t ms = hostNowMs() - s_memoStartMs;
+    char name[24];
+    snprintf(name, sizeof(name), "memo_%04d.wav", (int)s_memos.size());
+    s_memos.push_back(name);
+    s_memoSizes.push_back((uint32_t)((uint64_t)ms * 32000u / 1000u));  // 16 kHz * 2 bytes
+    std::fprintf(stderr, "[memo record stop %u ms]\n", ms);
+    return true;
+}
+bool memoDelete(int index) {
+    if (index < 0 || index >= (int)s_memos.size()) return false;
+    s_memos.erase(s_memos.begin() + index);
+    s_memoSizes.erase(s_memoSizes.begin() + index);
+    if (s_memoIndex == index) {
+        s_memoIndex = -1;
+        s_memoPlaying = false;
+    } else if (s_memoIndex > index) {
+        s_memoIndex--;
+    }
+    return true;
+}
+void memoPlay(int index) {
+    if (index < 0 || index >= (int)s_memos.size()) return;
+    s_memoIndex = index;
+    s_memoPlaying = true;
+    std::fprintf(stderr, "[memo play %d]\n", index);
+}
+void memoTogglePlay() {
+    if (s_memoIndex < 0) {
+        if (!s_memos.empty()) memoPlay(0);
+        return;
+    }
+    s_memoPlaying = !s_memoPlaying;
+    std::fprintf(stderr, "[memo %s %d]\n", s_memoPlaying ? "resume" : "pause", s_memoIndex);
+}
+void memoStopPlayback() {
+    s_memoPlaying = false;
+    s_memoIndex = -1;
+}
+bool memoPlaying() { return s_memoPlaying; }
+int memoIndex() { return s_memoIndex; }
+uint32_t memoPositionSec() { return 0; }
+uint32_t memoDurationSec() { return 0; }
 
 }  // namespace nexo

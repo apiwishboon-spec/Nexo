@@ -34,10 +34,11 @@ std::string advertisingName()
 void setup()
 {
     auto cfg = M5.config();
-    // We own I2S via the media module (ES8311 codec + ESP32-audioI2S), so keep
-    // M5Unified from claiming the internal speaker/mic.
+    // We own the speaker path (ES8311 DAC + ESP32-audioI2S) ourselves, but the
+    // mic is handed to M5Unified so voice memos can use its Cardputer-Adv
+    // capture configuration and ES8311 enable callback.
     cfg.internal_spk = false;
-    cfg.internal_mic = false;
+    cfg.internal_mic = true;
     M5Cardputer.begin(cfg, true);
     M5Cardputer.Display.setRotation(1);
     M5Cardputer.Display.setBrightness(128);
@@ -69,6 +70,7 @@ void loop()
     gUi.loop();
     audioLoop();
     gBridge.tick();
-    // Feed the I2S decoder tightly while a track plays so it does not underrun.
-    delay(musicPlaying() ? 1 : 10);
+    // Feed the I2S decoder tightly while a track or memo plays so it does not
+    // underrun.
+    delay((musicPlaying() || memoPlaying()) ? 1 : 10);
 }

@@ -34,6 +34,7 @@ private:
         Settings,
         About,
         Music,
+        Memo,       // voice memos (record/play/delete)
         Clock,      // idle flip-clock screensaver
         Lab,        // hidden tools menu
         WifiScan,   // lab: AP scanner
@@ -64,6 +65,7 @@ private:
     void drawSettings();
     void drawAbout();
     void drawMusic();
+    void drawMemo();
     void drawClock();
     void drawLab();
     void drawWifiScan();
@@ -81,6 +83,7 @@ private:
     void openMenu();
     void openNotes();
     void openHomework();
+    void openMemo();
     void openLab();
     void computeDueToday();
     void toggleHwDone();
@@ -148,6 +151,11 @@ private:
     int musicSel_ = 0;
     int musicScroll_ = 0;
 
+    // Voice memos
+    int memoSel_ = 0;
+    int memoScroll_ = 0;
+    uint32_t memoRedrawAt_ = 0;
+
     // Battery (Cardputer reports this over the ADC on GPIO10).
     int batteryLevel_ = -1;
     bool batteryCharging_ = false;
@@ -159,7 +167,8 @@ private:
     bool asleep_ = false;
 
     // Home layout: left pane shows either today's tasks or the character.
-    int homePane_ = 0;  // 0 = due today, 1 = character
+    int homePane_ = 0;   // 0 = due today, 1 = character
+    int homeChar_ = 0;   // 0 = cat, 1 = glasses kid
     std::vector<Homework> dueToday_;
     Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
     uint32_t petDrawAt_ = 0;

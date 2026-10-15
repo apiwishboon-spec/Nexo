@@ -52,7 +52,7 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
     ble_ = ble;
     wifi_ = wifi;
     menuItems_ = {"Quick Notes", "Homework", "Calculator", "Timer",
-                  "Settings",   "About",   "Music"};
+                  "Settings",   "About",   "Music",      "Memos"};
     screen_ = Screen::Splash;
     splashUntil_ = millis() + 1600;
     sel_ = 0;
@@ -284,24 +284,105 @@ void Ui::drawMenu()
     }
 }
 
-// An 8-bit blob that bobs and blinks; a friendly face for the Home pane.
-void Ui::drawCharacter(int x, int y, int w, int h)
+// ---- Home-pane characters (26x26 pixel art, drawn at 3x) -------------------
+namespace {
+constexpr int kArtW = 26;
+constexpr int kArtH = 26;
+constexpr int kArtScale = 3;
+
+// '#' outline  'f' fur  'F' fur shade  'e' eye  'u' pupil
+// 'p' pink     'h' hair 'g' glasses    'w' lens 's' skin   '.' transparent
+uint16_t artColor(char c)
+{
+    switch (c) {
+        case '#': return kPrimary;
+        case 'f': return kSurface;
+        case 'F': return kSurfaceVariant;
+        case 'e': return kOnSurface;
+        case 'u': return kBackground;
+        case 'p': return kError;
+        case 'h': return kOnSurfaceVariant;
+        case 'g': return kPrimary;
+        case 'w': return kSurfaceVariant;
+        case 's': return kOnSurface;
+        case ':': return kOutline;  // whiskers
+        default: return 0;
+    }
+}
+
+void blitArt(const char* const* rows, int x, int y)
 {
     auto& d = M5Cardputer.Display;
-    const int bw = 46, bh = 48;
-    int bx = x + (w - bw) / 2;
-    int by = y + (h - bh) / 2 + (int)((millis() / 500) % 2);
-    d.fillRoundRect(bx, by, bw, bh, 9, kSurfaceVariant);
-    d.drawRoundRect(bx, by, bw, bh, 9, kPrimary);
-    bool blink = ((millis() / 2000) % 4) == 0;
-    if (blink) {
-        d.fillRect(bx + 12, by + 18, 8, 2, kPrimary);
-        d.fillRect(bx + 26, by + 18, 8, 2, kPrimary);
-    } else {
-        d.fillRect(bx + 13, by + 15, 6, 8, kPrimary);
-        d.fillRect(bx + 27, by + 15, 6, 8, kPrimary);
+    for (int r = 0; r < kArtH; ++r) {
+        const char* line = rows[r];
+        for (int c = 0; c < kArtW && line[c]; ++c) {
+            if (line[c] == '.') continue;
+            d.fillRect(x + c * kArtScale, y + r * kArtScale, kArtScale, kArtScale,
+                       artColor(line[c]));
+        }
     }
-    d.fillRect(bx + 17, by + 32, 12, 2, kOnSurfaceVariant);
+}
+
+// Eyes closed: a thin lid line where the pupils are.
+void blinkCat(int x, int y)
+{
+    auto& d = M5Cardputer.Display;
+    d.fillRect(x + 7 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kPrimary);
+    d.fillRect(x + 16 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kPrimary);
+}
+
+void blinkKid(int x, int y)
+{
+    auto& d = M5Cardputer.Display;
+    d.fillRect(x + 5 * kArtScale, y + 9 * kArtScale, 4 * kArtScale, kArtScale, kPrimary);
+    d.fillRect(x + 17 * kArtScale, y + 9 * kArtScale, 4 * kArtScale, kArtScale, kPrimary);
+}
+}  // namespace
+
+// A bobbing, blinking cat: ears, whiskers, tail.
+static const char* const kCatArt[kArtH] = {
+    "......#............#......", ".....##............##.....",
+    "....#ppp#........#ppp#....", "...#ppppp#......#ppppp#...",
+    "...####################...", "..#ffffffffffffffffffff#..",
+    "..#ffffffffffffffffffff#..", "..#ffffffffffffffffffff#..",
+    "..#ffffeeefffffffeeeffff#..", "..#ffffeeueffffffeeueffff#..",
+    "..#ffffffffffffffffffff#..", "..#fffffffffppfffffffff#..",
+    "..#ffffffffffffffffffff#..", "..#fffffffffuuffffffffff#..",
+    "::#ffffffffffffffffffff#::", "..#ffffffffffffffffffff#..",
+    "...####################...", ".....#ffffffffffffff#.#...",
+    ".....#ffffffffffffff###...", ".....#fffFFfffffFFff###...",
+    ".....#ffffffffffffff###...", ".....#ffffffffffffff###...",
+    ".....#ffffffffffffff###...", ".....################.....",
+    "......#####....#####......", "......#fff#....#fff#......",
+};
+
+// A little kid with big round glasses.
+static const char* const kKidArt[kArtH] = {
+    "....hhh..hhh..hhh..hhh....", "...hhhhhhhhhhhhhhhhhhhh...",
+    "..hhhhhhhhhhhhhhhhhhhhhh..", "..hhhhhhhhhhhhhhhhhhhhhh..",
+    "..hssssssssssssssssssssh..", "..hssssssssssssssssssssh..",
+    "..hssssssssssssssssssssh..", "..hsggggggssssssggggggsh..",
+    "..hsgwwwwgssssssgwwwwgsh..", "..hsgweuwgssssssgweuwgsh..",
+    "..hsgwwwwgssssssgwwwwgsh..", "..hsgwwwwggggggggwwwwgsh..",
+    "..hsggggggssssssggggggsh..", "..hssssssssssssssssssssh..",
+    "..hsssssssssuusssssssssh..", "..hssssssssssssssssssssh..",
+    "...####################...", ".....#ssssssssssssss#.....",
+    ".....#ssssssssssssss#.....", "....#ssssssssssssssss#....",
+    "....#ssssssssssssssss#....", ".....#ssssssssssssss#.....",
+    ".....#ssssssssssssss#.....", ".....################.....",
+    "......####....####........", "......#ss#....#ss#........",
+};
+
+void Ui::drawCharacter(int x, int y, int w, int h)
+{
+    int bx = x + (w - kArtW * kArtScale) / 2;
+    int by = y + (h - kArtH * kArtScale) / 2 + (int)((millis() / 500) % 2);
+    bool kid = homeChar_ == 1;
+    blitArt(kid ? kKidArt : kCatArt, bx, by);
+    if ((millis() % 4000u) >= 3850u) {  // brief blink every ~4s
+        if (kid) blinkKid(bx, by);
+        else blinkCat(bx, by);
+    }
 }
 
 void Ui::drawCheckbox(int x, int y, bool done)
@@ -458,6 +539,7 @@ void Ui::drawSettings()
         "AP pass: " + std::string(wifi_ ? wifi_->apPassword().c_str() : "-"),
         std::string("Home pane: ") + (homePane_ == 1 ? "Character" : "Due today"),
         std::string("Screensaver: ") + (screensaver_ ? "Flip clock" : "Off"),
+        std::string("Home character: ") + (homeChar_ == 1 ? "Glasses kid" : "Cat"),
         std::string("Lab tools: ") + (labUnlocked_ ? "unlocked" : "locked"),
         "Save & persist",
     };
@@ -506,10 +588,11 @@ void Ui::drawAbout()
     drawFirmwareLogo(x, kContentTop + 2);
 
     d.setTextSize(1);
-    const char* ver = "Nexo 1.0.0  -  Protocol v1";
+    std::string ver = std::string("Nexo ") + kNexoVersion + "  -  Protocol v" +
+                      std::to_string(kProtocolVersion);
     d.setTextColor(kPrimary, kBackground);
-    d.setCursor((kW - (int)strlen(ver) * 6) / 2, kContentTop + kFirmwareLogoH + 6);
-    d.print(ver);
+    d.setCursor((kW - (int)ver.size() * 6) / 2, kContentTop + kFirmwareLogoH + 6);
+    d.print(ver.c_str());
 
     d.setTextColor(kOnSurfaceVariant, kBackground);
     wrappedText(
@@ -537,6 +620,75 @@ void Ui::drawMusic()
         drawListRow(y, kRowH, musicTitle(i), sub, i == musicSel_);
         y += kRowH;
     }
+}
+
+void Ui::drawMemo()
+{
+    auto& d = M5Cardputer.Display;
+    int count = memoCount();
+    drawHeader("Memos", count > 0 ? std::to_string(count) : std::string());
+
+    if (!memoSdReady()) {
+        drawEmptyState("No SD card");
+        return;
+    }
+
+    if (memoRecording()) {
+        bool on = ((millis() / 500) % 2) == 0;
+        d.fillCircle(kPad + 5, kContentTop + 8, 4, on ? kError : kSurfaceVariant);
+        d.setTextColor(kError, kBackground);
+        d.setCursor(kPad + 16, kContentTop + 4);
+        d.print("RECORDING");
+        char buf[12];
+        uint32_t s = memoSeconds();
+        snprintf(buf, sizeof(buf), "%02u:%02u", (unsigned)(s / 60), (unsigned)(s % 60));
+        d.setTextSize(2);
+        d.setTextColor(kOnSurface, kBackground);
+        d.setCursor(kW - 70, kContentTop + 2);
+        d.print(buf);
+        d.setTextSize(1);
+        d.setTextColor(kOnSurfaceVariant, kBackground);
+        d.setCursor(kPad, kContentTop + 34);
+        d.print("say something...");
+        d.setCursor(kPad, kH - 12);
+        d.print("ENTER stop & save");
+        return;
+    }
+
+    if (count == 0) {
+        drawEmptyState("No memos - press R");
+        d.setTextColor(kOnSurfaceVariant, kBackground);
+        d.setCursor(kPad, kH - 12);
+        d.print("R record");
+        return;
+    }
+
+    const int visible = 4;
+    if (memoSel_ < memoScroll_) memoScroll_ = memoSel_;
+    if (memoSel_ >= memoScroll_ + visible) memoScroll_ = memoSel_ - visible + 1;
+    int y = kContentTop;
+    for (int i = memoScroll_; i < count && i < memoScroll_ + visible; ++i) {
+        std::string sub;
+        char p[24];
+        if (i == memoIndex() && memoPlaying()) {
+            snprintf(p, sizeof(p), "playing %u:%02u", (unsigned)(memoPositionSec() / 60),
+                     (unsigned)(memoPositionSec() % 60));
+        } else {
+            uint32_t sz = memoSize(i);
+            if (sz < 1024) snprintf(p, sizeof(p), "%u B", (unsigned)sz);
+            else if (sz < 1024u * 1024u)
+                snprintf(p, sizeof(p), "%u KB", (unsigned)(sz / 1024));
+            else
+                snprintf(p, sizeof(p), "%u.%u MB", (unsigned)(sz / 1048576u),
+                         (unsigned)((sz / 104857u) % 10));
+        }
+        sub = p;
+        drawListRow(y, kRowH, memoTitle(i), sub, i == memoSel_);
+        y += kRowH;
+    }
+    d.setTextColor(kOnSurfaceVariant, kBackground);
+    d.setCursor(kPad, kH - 12);
+    d.print("R rec   ENTER play   DEL erase");
 }
 
 void Ui::drawClock()
@@ -685,6 +837,7 @@ void Ui::draw()
         case Screen::Settings: drawSettings(); break;
         case Screen::About: drawAbout(); break;
         case Screen::Music: drawMusic(); break;
+        case Screen::Memo: drawMemo(); break;
         case Screen::Clock: drawClock(); break;
         case Screen::Lab: drawLab(); break;
         case Screen::WifiScan: drawWifiScan(); break;
@@ -698,6 +851,7 @@ void Ui::draw()
 // ---- navigation / actions --------------------------------------------------
 void Ui::gotoHome()
 {
+    if (screen_ == Screen::Memo && memoRecording()) memoRecordStop();
     screen_ = Screen::Home;
     sel_ = 0;
 }
@@ -716,6 +870,7 @@ void Ui::openMenu()
             musicScroll_ = 0;
             screen_ = Screen::Music;
             break;
+        case 7: openMemo(); break;
     }
 }
 
@@ -737,6 +892,15 @@ void Ui::openHomework()
     hwSel_ = 0;
     hwScroll_ = 0;
     screen_ = Screen::Homework;
+}
+
+void Ui::openMemo()
+{
+    memoBegin();
+    memoScan();
+    memoSel_ = 0;
+    memoScroll_ = 0;
+    screen_ = Screen::Memo;
 }
 
 void Ui::openLab()
@@ -782,6 +946,7 @@ void Ui::loadPrefs()
     Preferences p;
     p.begin("nexoui", true);
     homePane_ = p.getUChar("homepane", 0);
+    homeChar_ = p.getUChar("homechar", 0);
     screensaver_ = p.getBool("screensaver", false);
     labUnlocked_ = p.getBool("lab", false);
     p.end();
@@ -792,6 +957,7 @@ void Ui::savePrefs()
     Preferences p;
     p.begin("nexoui", false);
     p.putUChar("homepane", (uint8_t)homePane_);
+    p.putUChar("homechar", (uint8_t)homeChar_);
     p.putBool("screensaver", screensaver_);
     p.putBool("lab", labUnlocked_);
     p.end();
@@ -1138,7 +1304,7 @@ void Ui::handleKeys()
             break;
         }
         case Screen::Settings: {
-            const int rows = 12;
+            const int rows = 13;
             if (navUp && settingsSel_ > 0) settingsSel_--;
             if (navDown && settingsSel_ < rows - 1) settingsSel_++;
             if (settingsSel_ == 3) {
@@ -1157,6 +1323,10 @@ void Ui::handleKeys()
             }
             if (settingsSel_ == 9 && (navLeft || navRight)) {
                 screensaver_ = !screensaver_;
+                savePrefs();
+            }
+            if (settingsSel_ == 10 && (navLeft || navRight)) {
+                homeChar_ = homeChar_ ? 0 : 1;
                 savePrefs();
             }
             if (ks.enter) {
@@ -1186,10 +1356,14 @@ void Ui::handleKeys()
                     savePrefs();
                     notify(screensaver_ ? "Screensaver on" : "Screensaver off");
                 } else if (settingsSel_ == 10) {
+                    homeChar_ = homeChar_ ? 0 : 1;
+                    savePrefs();
+                    notify(homeChar_ ? "Character: glasses kid" : "Character: cat");
+                } else if (settingsSel_ == 11) {
                     labUnlocked_ = true;
                     savePrefs();
                     openLab();
-                } else if (settingsSel_ == 11) {
+                } else if (settingsSel_ == 12) {
                     app_->repo().persistSettings();
                     notify("Persisted");
                 }
@@ -1219,6 +1393,40 @@ void Ui::handleKeys()
                         musicTogglePlay();
                     else
                         musicPlay(musicSel_);
+                }
+            }
+            if (ks.esc) gotoHome();
+            break;
+        }
+        case Screen::Memo: {
+            if (memoRecording()) {
+                if (ks.enter || ks.esc) {
+                    memoRecordStop();
+                    notify("Saved");
+                }
+                break;
+            }
+            int count = memoCount();
+            for (char c : ks.word) {
+                if (c == 'r' || c == 'R') {
+                    if (memoRecordStart()) notify("Recording");
+                    else notify("Mic unavailable");
+                }
+            }
+            if (count > 0) {
+                if (navUp && memoSel_ > 0) memoSel_--;
+                if (navDown && memoSel_ + 1 < count) memoSel_++;
+                if (ks.enter) {
+                    if (memoIndex() == memoSel_)
+                        memoTogglePlay();
+                    else
+                        memoPlay(memoSel_);
+                }
+                if (ks.del || ks.backspace) {
+                    if (memoDelete(memoSel_)) {
+                        if (memoSel_ >= memoCount() && memoSel_ > 0) memoSel_--;
+                        notify("Erased");
+                    }
                 }
             }
             if (ks.esc) gotoHome();
@@ -1320,6 +1528,18 @@ void Ui::loop()
         millis() - petDrawAt_ > 400u) {
         petDrawAt_ = millis();
         draw();
+    }
+    if (screen_ == Screen::Memo && !asleep_) {
+        if (memoRecording()) {
+            memoRecordTick();  // stream mic -> SD
+            if (millis() - memoRedrawAt_ > 300u) {
+                memoRedrawAt_ = millis();
+                draw();
+            }
+        } else if (memoPlaying() && millis() - memoRedrawAt_ > 500u) {
+            memoRedrawAt_ = millis();
+            draw();
+        }
     }
     updatePower();
 }

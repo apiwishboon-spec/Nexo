@@ -64,6 +64,32 @@ volatile bool s_req_stop = false;
 volatile int s_req_seek = -1;    // seconds, -1 == none
 volatile int s_req_volume = -1;  // percent, -1 == none
 
+// ---- Voice memos -------------------------------------------------------------
+constexpr const char* kMemoDir = "/memos";
+constexpr uint32_t kMemoSampleRate = 16000;
+constexpr size_t kMemoChunk = 240;               // 15 ms per record() call
+constexpr uint32_t kMemoMaxMs = 5ul * 60ul * 1000ul;  // cap each memo at 5 min
+
+std::vector<std::string> s_memos;
+std::vector<uint32_t> s_memoSizes;
+bool s_memoRecording = false;
+File s_memoFile;
+uint32_t s_memoDataBytes = 0;
+uint32_t s_memoStartMs = 0;
+int16_t s_memoChunk[kMemoChunk];
+
+// Memo playback rides on the same decoder, so these track what is playing.
+int s_memoIndex = -1;
+bool s_memoIsPlaying = false;
+volatile int s_req_memo_play = -1;       // index, -1 == none
+volatile bool s_req_memo_toggle = false;
+volatile bool s_req_memo_stop = false;
+
+// Handshake with the decoder task: recording needs port 0 back from it, so the
+// UI asks the task to park itself and only touches I2S once it has confirmed.
+volatile bool s_park = false;
+volatile bool s_parked = false;
+
 uint8_t toCodecVolume(uint8_t percent) { return (uint8_t)((uint32_t)percent * 21u / 100u); }
 
 void codecWrite(uint8_t reg, uint8_t value)
@@ -201,6 +227,14 @@ void scanTracks()
 void audioTask(void*)
 {
     for (;;) {
+        // Recording needs port 0: sit out of I2S until the UI lets us back in.
+        if (s_park) {
+            s_parked = true;
+            vTaskDelay(1);
+            continue;
+        }
+        s_parked = false;
+
         int vol = s_req_volume;
         if (vol >= 0) {
             s_req_volume = -1;
@@ -212,6 +246,7 @@ void audioTask(void*)
             if (s_beepReady) {
                 if (s_audio.isRunning()) s_audio.stopSong();
                 s_playing = false;
+                s_memoIsPlaying = false;
                 s_audio.connecttoFS(LittleFS, kBeepPath);
             }
         }
@@ -228,10 +263,45 @@ void audioTask(void*)
                 if (ok) {
                     s_index = req;
                     s_playing = true;
+                    s_memoIndex = -1;
+                    s_memoIsPlaying = false;
                 } else {
                     s_playing = false;
                 }
             }
+        }
+
+        int mreq = s_req_memo_play;
+        if (mreq >= 0) {
+            s_req_memo_play = -1;
+            if (s_sdReady && mreq < (int)s_memos.size()) {
+                s_audio.stopSong();
+                bool ok = s_audio.connecttoFS(SD, s_memos[mreq].c_str());
+                if (ok) {
+                    s_memoIndex = mreq;
+                    s_memoIsPlaying = true;
+                    s_index = -1;  // a memo and a music track never play together
+                    s_playing = false;
+                } else {
+                    s_memoIsPlaying = false;
+                }
+            }
+        }
+
+        if (s_req_memo_toggle) {
+            s_req_memo_toggle = false;
+            if (s_memoIndex >= 0) {
+                s_audio.pauseResume();
+                s_memoIsPlaying = !s_memoIsPlaying;
+            }
+        }
+
+        if (s_req_memo_stop) {
+            s_req_memo_stop = false;
+            if (s_audio.isRunning()) s_audio.stopSong();
+            s_memoIsPlaying = false;
+            s_posSec = 0;
+            s_durSec = 0;
         }
 
         if (s_req_toggle) {
@@ -256,7 +326,7 @@ void audioTask(void*)
             if (s_index >= 0) s_audio.setAudioPlayPosition((uint16_t)seek);
         }
 
-        if (s_playing) {
+        if (s_playing || s_memoIsPlaying) {
             s_audio.loop();
             s_posSec = (uint16_t)s_audio.getAudioCurrentTime();
             s_durSec = (uint16_t)s_audio.getAudioFileDuration();
@@ -426,9 +496,229 @@ void musicRescan() { scanTracks(); }
 
 void musicSetAutoAdvance(bool on) { s_autoAdvance = on; }
 
+// ---------------------------------------------------------------------------
+// Voice memos (16 kHz mono WAVs under /memos).
+//
+// The decoder and M5's mic both want I2S port 0, so a recording hands the port
+// over: park the decoder task, release its legacy driver, start the mic, and on
+// the way back reinstall the decoder, re-attach BCLK/LRCK (the codec derives
+// MCLK from BCLK) and re-apply the DAC register sequence the mic's codec reset
+// cleared.
+// ---------------------------------------------------------------------------
+namespace {
+
+void memoParkAudioTask()
+{
+    s_park = true;
+    uint32_t start = millis();
+    while (!s_parked && millis() - start < 1000) vTaskDelay(1);
+}
+
+void memoUnparkAudioTask() { s_park = false; }
+
+void memoHandbackI2S()
+{
+    // Port 0 is free again: reinstall the decoder's driver and its pins.
+    s_audio.setI2SCommFMT_LSB(false);
+    s_audio.setPinout(kI2sBclk, kI2sLrck, kI2sDout, I2S_PIN_NO_CHANGE, I2S_PIN_NO_CHANGE);
+    delay(10);
+    codecConfigure();  // the mic's codec write reset the DAC path
+    s_audio.setVolume(toCodecVolume(s_enabled ? s_volume : 0));
+}
+
+}  // namespace
+
+void memoScan()
+{
+    s_memos.clear();
+    s_memoSizes.clear();
+    File root = SD.open(kMemoDir);
+    if (!root) return;
+    File entry;
+    while ((entry = root.openNextFile()) && s_memos.size() < kMaxTracks) {
+        if (!entry.isDirectory()) {
+            std::string name = entry.name();
+            const char* base = baseName(name);
+            if (base[0] == '\0' || base[0] == '.') {
+                entry.close();
+                continue;
+            }
+            std::string lower = name;
+            for (char& c : lower) c = (char)tolower((unsigned char)c);
+            if (lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".wav") == 0) {
+                if (name.empty() || name[0] != '/') name = std::string(kMemoDir) + "/" + name;
+                s_memos.push_back(name);
+                s_memoSizes.push_back(static_cast<uint32_t>(entry.size()));
+            }
+        }
+        entry.close();
+    }
+    root.close();
+}
+
+bool memoBegin()
+{
+    if (!s_sdReady) return false;
+    if (!SD.exists(kMemoDir)) SD.mkdir(kMemoDir);
+    memoScan();
+    return true;
+}
+
+int memoCount() { return (int)s_memos.size(); }
+
+const char* memoTitle(int index)
+{
+    if (index < 0 || index >= (int)s_memos.size()) return "";
+    return baseName(s_memos[index]);
+}
+
+uint32_t memoSize(int index)
+{
+    if (index < 0 || index >= (int)s_memoSizes.size()) return 0;
+    return s_memoSizes[index];
+}
+
+bool memoSdReady() { return s_sdReady; }
+bool memoRecording() { return s_memoRecording; }
+
+uint32_t memoSeconds()
+{
+    if (!s_memoRecording) return 0;
+    return (millis() - s_memoStartMs) / 1000;
+}
+
+bool memoRecordStart()
+{
+    if (s_memoRecording || !s_sdReady) return false;
+
+    // Park the decoder first: it must not touch port 0 while we take it over.
+    memoParkAudioTask();
+    if (s_audio.isRunning()) s_audio.stopSong();
+    s_playing = false;
+    s_memoIsPlaying = false;
+    s_index = -1;
+    s_memoIndex = -1;
+    s_posSec = 0;
+    s_durSec = 0;
+
+    // Only one driver may own a port: drop the decoder's legacy driver so the
+    // mic's channel can be installed there.
+    i2s_driver_uninstall((i2s_port_t)I2S_NUM_0);
+
+    if (!M5Cardputer.Mic.begin()) {
+        Serial.println("[audio] mic begin failed, keeping I2S for the decoder");
+        memoHandbackI2S();
+        memoUnparkAudioTask();
+        return false;
+    }
+
+    char path[48];
+    path[0] = '\0';
+    for (int n = 0; n < 10000; ++n) {
+        snprintf(path, sizeof(path), "%s/memo_%04d.wav", kMemoDir, n);
+        if (!SD.exists(path)) break;
+        path[0] = '\0';
+    }
+    s_memoFile = path[0] ? SD.open(path, FILE_WRITE) : File();
+    if (!s_memoFile) {
+        Serial.println("[audio] cannot create memo file");
+        M5Cardputer.Mic.end();
+        memoHandbackI2S();
+        memoUnparkAudioTask();
+        return false;
+    }
+
+    // Placeholder header; the real sizes are patched in at memoRecordStop().
+    writeWavHeader(s_memoFile, kMemoSampleRate, 0);
+    s_memoDataBytes = 0;
+    s_memoStartMs = millis();
+    s_memoRecording = true;
+    s_req_memo_stop = false;
+    Serial.printf("[audio] recording %s\n", path);
+    return true;
+}
+
+void memoRecordTick()
+{
+    if (!s_memoRecording) return;
+    if (M5Cardputer.Mic.record(s_memoChunk, kMemoChunk, kMemoSampleRate)) {
+        size_t bytes = kMemoChunk * sizeof(int16_t);
+        s_memoFile.write((const uint8_t*)s_memoChunk, bytes);
+        s_memoDataBytes += (uint32_t)bytes;
+    }
+    if (millis() - s_memoStartMs >= kMemoMaxMs) memoRecordStop();
+}
+
+bool memoRecordStop()
+{
+    if (!s_memoRecording) return false;
+    s_memoRecording = false;
+
+    if (s_memoFile) {
+        s_memoFile.flush();
+        if (s_memoFile.seek(0)) writeWavHeader(s_memoFile, kMemoSampleRate, s_memoDataBytes);
+        s_memoFile.close();
+    }
+
+    M5Cardputer.Mic.end();  // releases port 0 and powers the codec down
+    memoHandbackI2S();
+    memoUnparkAudioTask();
+    memoScan();
+    Serial.printf("[audio] memo saved (%u bytes)\n", (unsigned)s_memoDataBytes);
+    return true;
+}
+
+bool memoDelete(int index)
+{
+    if (!s_sdReady || index < 0 || index >= (int)s_memos.size()) return false;
+    if (s_memoRecording) return false;
+    if (s_memoIsPlaying && s_memoIndex == index) memoStopPlayback();
+    const std::string& path = s_memos[index];
+    if (!SD.exists(path.c_str())) return false;
+    if (!SD.remove(path.c_str())) return false;
+    if (s_memoIndex == index) {
+        s_memoIndex = -1;
+        s_memoIsPlaying = false;
+    } else if (s_memoIndex > index) {
+        s_memoIndex--;
+    }
+    memoScan();
+    return true;
+}
+
+void memoPlay(int index)
+{
+    if (!s_sdReady || s_memoRecording) return;
+    if (index < 0 || index >= (int)s_memos.size()) return;
+    s_memoIndex = index;
+    s_memoIsPlaying = true;  // optimistic; cleared if the decoder cannot open it
+    s_req_memo_play = index;
+}
+
+void memoTogglePlay()
+{
+    if (s_memoIndex < 0) {
+        if (!s_memos.empty()) memoPlay(0);
+        return;
+    }
+    s_req_memo_toggle = true;
+}
+
+void memoStopPlayback() { s_req_memo_stop = true; }
+
+bool memoPlaying() { return s_memoIsPlaying; }
+int memoIndex() { return s_memoIndex; }
+uint32_t memoPositionSec() { return s_posSec; }
+uint32_t memoDurationSec() { return s_durSec; }
+
+
 // Called from the decoder task when a file finishes -> advance to next track.
 void audioOnEof()
 {
+    if (s_memoIsPlaying) {  // a memo is a single file; never auto-advance it
+        s_memoIsPlaying = false;
+        return;
+    }
     if (s_tracks.empty()) return;
     s_playing = false;
     if (!s_autoAdvance) return;
