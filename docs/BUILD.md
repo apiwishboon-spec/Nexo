@@ -92,7 +92,8 @@ To ship a release the updater will see: bump `version:` in `app/pubspec.yaml`
 and `kNexoVersion` in the firmware, then push a `vX.Y.Z` tag. The
 [`release` workflow](../.github/workflows/release.yml) builds the firmware, the
 Android APK and the macOS `.app`, generates `SHA256SUMS`, and attaches them to a
-GitHub release (using `docs/releases/vX.Y.Z.md` as the body when present).
+GitHub release (using `docs/releases/X.Y.Z.md`, without the leading `v`, as the
+body when present).
 
 ## Continuous integration & releases
 
