@@ -8,6 +8,9 @@ import 'package:pub_semver/pub_semver.dart';
 /// The GitHub repository that publishes Nexo releases.
 const String kUpdateRepo = 'apiwishboon-spec/Nexo';
 
+/// The device firmware image attached to every release.
+const String kFirmwareAsset = 'Nexo-m5stack-cardputer.bin';
+
 /// An asset attached to a GitHub release.
 class UpdateAsset {
   const UpdateAsset({required this.name, required this.url, required this.size});
@@ -22,6 +25,9 @@ class AppRelease {
   const AppRelease({
     required this.tag,
     required this.version,
+    required this.name,
+    required this.isDraft,
+    required this.isPrerelease,
     required this.notes,
     required this.htmlUrl,
     required this.assets,
@@ -31,11 +37,15 @@ class AppRelease {
 
   /// The version without any leading `v` (e.g. `2.0.0`).
   final String version;
+  final String name;
+  final bool isDraft;
+  final bool isPrerelease;
   final String notes;
   final String htmlUrl;
   final List<UpdateAsset> assets;
 
-  /// Parses a GitHub `releases/latest` payload.
+  /// Parses a GitHub release payload (works for both `/releases` and
+  /// `/releases/latest`).
   factory AppRelease.fromJson(Map<String, dynamic> json) {
     final tag = (json['tag_name'] as String? ?? '').trim();
     final assets = <UpdateAsset>[];
@@ -50,6 +60,9 @@ class AppRelease {
     return AppRelease(
       tag: tag,
       version: tag.startsWith('v') ? tag.substring(1) : tag,
+      name: (json['name'] as String? ?? '').trim(),
+      isDraft: json['draft'] as bool? ?? false,
+      isPrerelease: json['prerelease'] as bool? ?? false,
       notes: json['body'] as String? ?? '',
       htmlUrl: json['html_url'] as String? ?? '',
       assets: assets,
@@ -62,6 +75,9 @@ class AppRelease {
     }
     return null;
   }
+
+  /// The firmware image attached to this release, if any.
+  UpdateAsset? get firmwareAsset => assetNamed(kFirmwareAsset);
 
   /// The asset that matches the current platform, if any.
   UpdateAsset? get platformAsset {
@@ -87,9 +103,7 @@ class Updater {
     final req = await _client.getUrl(
       Uri.parse('https://api.github.com/repos/$kUpdateRepo/releases/latest'),
     );
-    req.headers.set(HttpHeaders.acceptHeader, _headers['Accept']!);
-    req.headers.set('X-GitHub-Api-Version', _headers['X-GitHub-Api-Version']!);
-    req.headers.set(HttpHeaders.userAgentHeader, 'Nexo-Updater');
+    _applyHeaders(req);
 
     final res = await req.close();
     final body = await res.transform(utf8.decoder).join();
@@ -98,6 +112,31 @@ class Updater {
     }
     final json = jsonDecode(body) as Map<String, dynamic>;
     return AppRelease.fromJson(json);
+  }
+
+  /// Fetches published releases, newest first, skipping drafts and prereleases.
+  Future<List<AppRelease>> fetchReleases({int perPage = 30}) async {
+    final req = await _client.getUrl(Uri.parse(
+      'https://api.github.com/repos/$kUpdateRepo/releases?per_page=$perPage',
+    ));
+    _applyHeaders(req);
+
+    final res = await req.close();
+    final body = await res.transform(utf8.decoder).join();
+    if (res.statusCode != 200) {
+      throw HttpException('GitHub returned ${res.statusCode}');
+    }
+    final list = jsonDecode(body) as List;
+    return list
+        .map((e) => AppRelease.fromJson(e as Map<String, dynamic>))
+        .where((r) => !r.isDraft && !r.isPrerelease)
+        .toList();
+  }
+
+  void _applyHeaders(HttpClientRequest req) {
+    req.headers.set(HttpHeaders.acceptHeader, _headers['Accept']!);
+    req.headers.set('X-GitHub-Api-Version', _headers['X-GitHub-Api-Version']!);
+    req.headers.set(HttpHeaders.userAgentHeader, 'Nexo-Updater');
   }
 
   /// Reads the running app's own version (e.g. `2.0.0`).
