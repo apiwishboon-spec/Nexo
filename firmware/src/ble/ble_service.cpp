@@ -90,6 +90,9 @@ void BleService::onConnect(NimBLEServer* server, ble_gap_conn_desc* desc)
     // stops advertising on its own only once NIMBLE_MAX_CONNECTIONS is reached.
     // Ask for a snappy-but-stable connection interval (15-30 ms, 4 s timeout).
     server->updateConnParams(conn, 12, 24, 0, 400);
+    // The NimBLE host stops advertising once a connection is established, so
+    // restart it here to let a *second* companion app discover and connect.
+    advDirty_ = true;
     Serial.printf("[ble] connect handle=%u peers=%u\n", conn, (unsigned)connCount_);
 }
 
