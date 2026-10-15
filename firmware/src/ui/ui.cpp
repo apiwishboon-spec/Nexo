@@ -396,10 +396,13 @@ static const char* const kOwlArt[kArtH] = {
 void Ui::drawCharacter(int x, int y, int w, int h)
 {
     int bx = x + (w - kArtW * kArtScale) / 2;
-    int by = y + (h - kArtH * kArtScale) / 2 + (int)((millis() / 500) % 2);
+    // Bob: alternate 0/1 px every ~1.4 s (frames 0-19 down, 20-39 up).
+    uint32_t frame = (millis() / 700u) % 40u;
+    int bob = (frame < 20u) ? 0 : 1;
+    int by = y + (h - kArtH * kArtScale) / 2 + bob;
     bool owl = homeChar_ == 1;
     blitArt(owl ? kOwlArt : kCatArt, bx, by, owl ? 1 : 0);
-    if ((millis() % 4000u) >= 3850u) {  // brief blink every ~4s
+    if (frame >= 38u) {  // brief blink near the end of each ~28 s cycle
         if (owl) blinkOwl(bx, by);
         else blinkCat(bx, by);
     }
@@ -1546,10 +1549,15 @@ void Ui::loop()
             draw();
         }
     }
-    if (screen_ == Screen::Home && homePane_ == 1 && !asleep_ &&
-        millis() - petDrawAt_ > 400u) {
-        petDrawAt_ = millis();
-        draw();
+    if (screen_ == Screen::Home && homePane_ == 1 && !asleep_) {
+        // Bob + blink: only repaint when the animation frame actually changes,
+        // and never more than ~2x/second, so the panel does not strobe.
+        uint32_t frame = (millis() / 700u) % 40u;
+        if (frame != petFrame_) {
+            petFrame_ = frame;
+            petDrawAt_ = millis();
+            draw();
+        }
     }
     if (screen_ == Screen::Memo && !asleep_) {
         if (memoRecording()) {

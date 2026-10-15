@@ -172,6 +172,7 @@ private:
     std::vector<Homework> dueToday_;
     Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
     uint32_t petDrawAt_ = 0;
+    uint32_t petFrame_ = 0xFFFFFFFFu;
     uint32_t clockMinute_ = 0xFFFFFFFFu;
 
     // Screensaver + hidden Lab menu.
