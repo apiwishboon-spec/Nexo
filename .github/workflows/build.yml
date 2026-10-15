@@ -1,0 +1,232 @@
+name: Build
+
+# Smart continuous build: on every push to main, detect whether the app and/or
+# the firmware changed, rebuild only what changed, and publish the fresh
+# binaries to a rolling "continuous" prerelease with an auto-generated
+# description. Versioned, stable releases still come from release.yml (v* tags).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'firmware/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.7'
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.decide.outputs.app }}
+      firmware: ${{ steps.decide.outputs.firmware }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+            firmware:
+              - 'firmware/**'
+
+      - name: Resolve which components to build
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            echo "firmware=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: building everything."
+          else
+            echo "app=${{ steps.filter.outputs.app }}" >> "$GITHUB_OUTPUT"
+            echo "firmware=${{ steps.filter.outputs.firmware }}" >> "$GITHUB_OUTPUT"
+            echo "App: ${{ steps.filter.outputs.app }}  Firmware: ${{ steps.filter.outputs.firmware }}"
+          fi
+
+  android:
+    name: Android APK
+    needs: changes
+    if: ${{ needs.changes.outputs.app == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Configure release signing
+        working-directory: app
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+            printf '%s\n' "$KEY_PROPERTIES" > android/key.properties
+            echo "Signing release build with keystore from secrets."
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 / ANDROID_KEY_PROPERTIES not set - the APK will be signed with a throwaway debug key. See docs/BUILD.md."
+          fi
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Stage asset
+        run: cp app/build/app/outputs/flutter-apk/app-release.apk Nexo-android-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: Nexo-android-release.apk
+          if-no-files-found: error
+
+  macos:
+    name: macOS app
+    needs: changes
+    if: ${{ needs.changes.outputs.app == 'true' }}
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build
+        working-directory: app
+        run: flutter build macos --release
+
+      - name: Package .app
+        run: ditto -c -k --keepParent "app/build/macos/Build/Products/Release/Nexo.app" Nexo-macos-release.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Nexo-macos-release.zip
+          if-no-files-found: error
+
+  firmware:
+    name: Firmware image
+    needs: changes
+    if: ${{ needs.changes.outputs.firmware == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build
+        working-directory: firmware
+        run: pio run -e m5stack-cardputer
+
+      - name: Stage asset
+        run: cp firmware/.pio/build/m5stack-cardputer/firmware.bin Nexo-m5stack-cardputer.bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: Nexo-m5stack-cardputer.bin
+          if-no-files-found: error
+
+  publish:
+    name: Publish continuous build
+    needs: [changes, android, macos, firmware]
+    if: ${{ always() && (needs.android.result == 'success' || needs.macos.result == 'success' || needs.firmware.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      - name: Assemble available assets and checksums
+        run: |
+          mkdir -p out
+          find assets -type f \( -name 'Nexo-*.bin' -o -name 'Nexo-*.apk' -o -name 'Nexo-*.zip' \) -exec cp {} out/ \;
+          cd out
+          if ls Nexo-* >/dev/null 2>&1; then
+            sha256sum Nexo-* > SHA256SUMS
+            cat SHA256SUMS
+          fi
+
+      - name: Generate description
+        run: |
+          APP="${{ needs.changes.outputs.app }}"
+          FW="${{ needs.changes.outputs.firmware }}"
+          {
+            echo "## Nexo continuous build"
+            echo
+            echo "Commit \`${GITHUB_SHA:0:7}\` on \`main\`."
+            echo
+            echo "### Rebuilt this run"
+            [ "$APP" = "true" ] && echo "- App (Android APK + macOS app)" || echo "- App (unchanged)"
+            [ "$FW" = "true" ] && echo "- Firmware (Cardputer image)" || echo "- Firmware (unchanged)"
+            echo
+            echo "### Commits"
+            PREV=$(git describe --tags --abbrev=0 --exclude=continuous --exclude='continuous.*' 2>/dev/null || true)
+            if [ -n "$PREV" ]; then
+              git log "${PREV}..HEAD" --pretty=format:'- %s (\`%h\`)'
+            else
+              git log -15 --pretty=format:'- %s (\`%h\`)'
+            fi
+            echo
+            echo
+            echo "_Rolling development build. Stable releases: see the versioned tags._"
+          } > out/notes.md
+          cat out/notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: continuous
+          name: Nexo (continuous build)
+          body_path: out/notes.md
+          prerelease: true
+          fail_on_unmatched_files: false
+          files: |
+            out/Nexo-android-release.apk
+            out/Nexo-macos-release.zip
+            out/Nexo-m5stack-cardputer.bin
+            out/SHA256SUMS

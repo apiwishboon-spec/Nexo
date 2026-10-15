@@ -124,6 +124,11 @@ on GitHub Actions so it does not tie up a local machine.
 - **`release.yml`** — on a `v*` tag (or manual dispatch): builds all three
   artifacts and publishes a GitHub Release. The `FLUTTER_VERSION` env in both
   workflows pins the SDK version.
+- **`build.yml`** — on pushes to `main` that touch `app/**` or `firmware/**`:
+  detects which component changed, rebuilds only that one, and publishes the
+  fresh binaries to a rolling `continuous` prerelease with an auto-generated
+  description (changed components + commit log). Stable builds still come from
+  `release.yml`.
 - **`emulator.yml`** — on UI changes: rebuilds the WASM emulator and commits it
   into `website/assets/emu/`.
 
