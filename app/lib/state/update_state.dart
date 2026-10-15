@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -160,11 +161,18 @@ class UpdateState extends ChangeNotifier {
   Future<void> _installMac(String path) async {
     status = 'Preparing to restart…';
     notifyListeners();
-    final ok = await UpdateInstaller.applyMacUpdate(path);
-    if (!ok) {
+    try {
+      final ok = await UpdateInstaller.applyMacUpdate(path);
+      if (!ok) {
+        await UpdateInstaller.reveal(path);
+        error = 'Could not update automatically. The download was revealed in '
+            'Finder — replace /Applications/Nexo.app with it.';
+      }
+    } catch (e) {
       await UpdateInstaller.reveal(path);
-      error = 'Could not update automatically. The download was revealed in '
-          'Finder — replace /Applications/Nexo.app with it.';
+      final msg = e is PlatformException ? (e.message ?? e.toString()) : e.toString();
+      error = '$msg The download was revealed in Finder — '
+          'replace /Applications/Nexo.app with it.';
     }
     // On success the app is about to quit and relaunch.
   }

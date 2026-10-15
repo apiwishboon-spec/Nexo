@@ -72,7 +72,11 @@ class UpdatePanel extends StatelessWidget {
                 if (u.hasUpdate)
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: u.downloading ? null : u.downloadAndInstall,
+                      onPressed: u.downloading
+                          ? null
+                          : () => u.downloadAndInstall().catchError((e) {
+                                u.error = 'Update failed: $e';
+                              }),
                       icon: const Icon(Icons.download),
                       label: Text('Update to ${u.available!.version}'),
                     ),

@@ -59,7 +59,24 @@ class AppDelegate: FlutterAppDelegate {
   private func applyUpdate(zipPath: String, result: @escaping FlutterResult) {
     let appPath = Bundle.main.bundlePath
     if appPath.contains("/AppTranslocation/") {
-      result(false)
+      result(FlutterError(
+        code: "translocated",
+        message: "Nexo is running from a temporary macOS security path. "
+          + "Move Nexo to /Applications, relaunch it, then update again.",
+        details: nil
+      ))
+      return
+    }
+    // Also refuse when the bundle lives somewhere read-only (e.g. the user
+    // launched it straight from the .dmg or a Downloads folder without moving
+    // it to /Applications): swapping it would fail silently in the helper.
+    if !FileManager.default.isWritableFile(atPath: appPath) {
+      result(FlutterError(
+        code: "read_only",
+        message: "Nexo is running from a read-only location. "
+          + "Move it to /Applications, relaunch, then update again.",
+        details: nil
+      ))
       return
     }
 

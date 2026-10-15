@@ -1,7 +1,7 @@
 name: nexo_app
 description: "Nexo companion app: manage Cardputer notes, homework and music over BLE and Wi-Fi."
 publish_to: 'none'
-version: 2.2.2+6
+version: 2.2.3+7
 
 environment:
   sdk: ^3.13.5
