@@ -1,7 +1,7 @@
 # Nexo website
 
-Static, dependency-free marketing + documentation site. Plain HTML/CSS, no build
-step, no JavaScript required.
+Static, dependency-free marketing + documentation site. Plain HTML/CSS with no
+build step; the only JavaScript is the optional in-browser emulator.
 
 ## Pages
 
@@ -10,6 +10,7 @@ step, no JavaScript required.
 | `index.html`   | Landing page: hero, features, firmware screenshots |
 | `download.html`| Firmware / Android / macOS downloads (latest release) |
 | `docs.html`    | Quick start + links to the in-repo docs |
+| `emulator.html`| In-browser WebAssembly emulator of the firmware UI |
 | `terms.html`   | Terms of Service |
 | `privacy.html` | Privacy Policy |
 | `404.html`     | Not-found page |
@@ -34,6 +35,22 @@ in the companion app.
    URLs (`/download`) work automatically.
 
 Any other static host works too — just serve this folder.
+
+## Emulator
+
+`emulator.html` runs the **real firmware UI** compiled to WebAssembly. The
+artifacts live in `assets/emu/` (`nexo_emu.js` + `nexo_emu.wasm`) and are built
+by the [`emulator`](../.github/workflows/emulator.yml) GitHub Actions workflow
+from `firmware/tools/preview/`. The page loads them, draws the 240×135 frame to a
+canvas, and wires the on-screen keypad + keyboard to the emulator core.
+
+To rebuild locally (needs the Emscripten SDK on `PATH`):
+
+```bash
+bash firmware/tools/preview/build_wasm.sh
+```
+
+If `assets/emu/` is missing, the page degrades gracefully with a notice.
 
 ## Local preview
 

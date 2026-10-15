@@ -35,7 +35,7 @@ Nexo/
 │   ├── lib/ble/            # flutter_blue_plus client
 │   ├── lib/state/          # AppState (sync engine)
 │   └── lib/screens/        # UI
-├── website/                # static info site (deployed on Cloudflare Pages)
+├── website/                # static info site + WASM emulator (Cloudflare Pages)
 └── dist/                   # build artifacts
     ├── firmware/Nexo-m5stack-cardputer.bin
     └── app/Nexo-android-release.apk
@@ -92,6 +92,9 @@ flutter build apk --release           # Android APK
 See `docs/BUILD.md` for details and `docs/PROTOCOL.md` for the wire format.
 Prebuilt firmware and apps are on the [website](https://nexo-6oa.pages.dev/)
 and the [latest release](https://github.com/apiwishboon-spec/Nexo/releases/latest).
+Try the firmware UI in your browser at the
+[emulator](https://nexo-6oa.pages.dev/emulator) (the real `ui.cpp`, compiled to
+WebAssembly).
 
 ## License
 

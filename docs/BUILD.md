@@ -95,6 +95,25 @@ Android APK and the macOS `.app`, generates `SHA256SUMS`, and attaches them to a
 GitHub release (using `docs/releases/X.Y.Z.md`, without the leading `v`, as the
 body when present).
 
+## UI preview & web emulator
+
+The firmware UI also runs on the host with no hardware. All of these compile the
+real `src/ui/ui.cpp` against a fake M5Cardputer display:
+
+```bash
+# One-off PNG renders of every screen (needs clang++ + Pillow).
+bash firmware/tools/preview/build_preview.sh
+
+# Interactive Tk emulator (needs python3 with tkinter).
+bash firmware/tools/preview/emu.sh
+
+# WebAssembly build for the website (needs the Emscripten SDK on PATH).
+bash firmware/tools/preview/build_wasm.sh    # -> website/assets/emu/
+```
+
+The website loads the WASM build on `emulator.html`; the `emulator` workflow
+rebuilds and commits it whenever the shared UI changes.
+
 ## Continuous integration & releases
 
 Cheap, slow work (PlatformIO builds, Flutter analyze/test, release builds) runs
@@ -105,6 +124,8 @@ on GitHub Actions so it does not tie up a local machine.
 - **`release.yml`** — on a `v*` tag (or manual dispatch): builds all three
   artifacts and publishes a GitHub Release. The `FLUTTER_VERSION` env in both
   workflows pins the SDK version.
+- **`emulator.yml`** — on UI changes: rebuilds the WASM emulator and commits it
+  into `website/assets/emu/`.
 
 ### Android release signing (important)
 
