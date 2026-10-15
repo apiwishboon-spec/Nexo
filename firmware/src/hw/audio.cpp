@@ -331,6 +331,9 @@ void audioTask(void*)
             s_posSec = (uint16_t)s_audio.getAudioCurrentTime();
             s_durSec = (uint16_t)s_audio.getAudioFileDuration();
             vTaskDelay(1);
+        } else if (s_audio.isRunning()) {
+            s_audio.loop();
+            vTaskDelay(5);
         } else {
             vTaskDelay(20);
         }

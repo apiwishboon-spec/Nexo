@@ -703,13 +703,13 @@ void Ui::drawMemo()
                          (unsigned)((sz / 104857u) % 10));
         }
         sub = p;
-        drawListRow(y, kRowH, memoTitle(i), sub, i == memoSel_);
-        y += kRowH;
+        drawListRow(y, 18, memoTitle(i), sub, i == memoSel_);
+        y += 18;
     }
     d.setTextColor(kOnSurfaceVariant, kBackground);
     d.setCursor(kPad, kH - 12);
     char _f[40];
-    snprintf(_f, sizeof(_f), "R rec  ENTER play  DEL del   %d/%d", memoSel_ + 1, count);
+    snprintf(_f, sizeof(_f), "R rec  ENTER play  DEL del  %d/%d", memoSel_ + 1, count);
     d.print(_f);
 }
 
