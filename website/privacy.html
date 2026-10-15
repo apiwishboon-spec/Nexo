@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Nexo</title>
+  <meta name="description" content="Nexo Privacy Policy — Nexo collects no personal data." />
+  <link rel="icon" href="assets/img/logo.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap nav">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" /> NEXO</a>
+      <span class="spacer"></span>
+      <a class="link" href="index.html">Home</a>
+      <a class="link" href="download.html">Download</a>
+      <a class="link" href="docs.html">Docs</a>
+      <a class="link" href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="tight">
+      <h1>PRIVACY POLICY</h1>
+      <p class="muted">Last updated: 15 October 2026</p>
+      <p class="note" style="margin-top:14px">In short: Nexo has no accounts, no
+        servers and no analytics. Your data stays on your Cardputer and your
+        device.</p>
+    </section>
+
+    <section class="tight">
+      <div class="panel prose">
+        <h2>1. Who we are</h2>
+        <p>Nexo is an open-source project by Apiwish Anutravanichkul. This policy
+          explains how the Nexo firmware and companion app (Android and macOS)
+          handle information.</p>
+
+        <h2>2. Information we collect</h2>
+        <p><strong>None.</strong> Nexo does not collect, transmit or sell personal
+          data. There is no account system, no sign-in, no telemetry, no crash
+          reporting and no advertising.</p>
+
+        <h2>3. Where your data lives</h2>
+        <ul>
+          <li><strong>On the Cardputer:</strong> your notes, homework and settings
+            are stored in the device's on-board flash (LittleFS); music lives on
+            the microSD card.</li>
+          <li><strong>In the app:</strong> the app keeps a local offline cache
+            (notes, homework, settings and your device PIN) on your phone or Mac.</li>
+        </ul>
+        <p>This data never leaves your devices except when you explicitly transfer
+          it between them.</p>
+
+        <h2>4. Bluetooth</h2>
+        <p>The app uses Bluetooth Low Energy to pair with and sync to your own
+          Cardputer. Bluetooth is used only for direct communication with your
+          device and is gated by a PIN you set on the device.</p>
+
+        <h2>5. Wi-Fi</h2>
+        <p>To move music or update firmware, the app connects to the access point
+          the Cardputer creates for itself (or you connect manually). Traffic stays
+          on that local network between your phone/computer and the Cardputer; it
+          is not sent over the internet. The Cardputer's optional web interface is
+          served only on this local access point.</p>
+
+        <h2>6. Update checks</h2>
+        <p>When checking for updates, the app contacts <strong>GitHub</strong>
+          (<code>api.github.com</code> and <code>github.com</code>) to read the
+          latest release and, if you choose to update, to download the installer.
+          This request is subject to
+          <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.
+          It contains no personal data from Nexo. You can disable automatic update
+          checks in the app.</p>
+
+        <h2>7. Permissions</h2>
+        <ul>
+          <li><strong>Bluetooth</strong> — to find and sync with your Cardputer.</li>
+          <li><strong>Location (older Android versions)</strong> — required by the
+            operating system for Bluetooth scanning; Nexo does not use your
+            location.</li>
+          <li><strong>Network / Wi-Fi</strong> — to join the Cardputer's access
+            point and to download updates.</li>
+          <li><strong>Notifications</strong> — to keep the Bluetooth link alive in
+            the background (Android foreground service).</li>
+          <li><strong>Install unknown apps (Android)</strong> — only when you
+            choose to install an app update.</li>
+          <li><strong>Files</strong> — only the files you explicitly pick to upload
+            to the device.</li>
+        </ul>
+
+        <h2>8. Children</h2>
+        <p>Nexo collects no data and is suitable for general audiences. Because it
+          stores whatever content you enter, parents and guardians should supervise
+          use by children.</p>
+
+        <h2>9. Your choices</h2>
+        <p>You can clear any data stored in the app by uninstalling it or clearing
+          its data, and erase on-device data with the device's factory reset. No
+          request to us is needed because we hold none of your data.</p>
+
+        <h2>10. Changes</h2>
+        <p>We may update this policy; the "last updated" date above will change
+          accordingly.</p>
+
+        <h2>11. Contact</h2>
+        <p>Privacy questions? Open an issue at
+          <a href="https://github.com/apiwishboon-spec/Nexo/issues">github.com/apiwishboon-spec/Nexo</a>.</p>
+
+        <p class="muted">This page is provided for information only and is not legal advice.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap cols">
+      <div>© 2026 Apiwish Anutravanichkul · AGPL-3.0-or-later</div>
+      <div>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> ·
+        <a href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

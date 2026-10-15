@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation — Nexo</title>
+  <meta name="description" content="Build, flash and develop Nexo: firmware and companion app documentation." />
+  <link rel="icon" href="assets/img/logo.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap nav">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" /> NEXO</a>
+      <span class="spacer"></span>
+      <a class="link" href="index.html">Home</a>
+      <a class="link" href="download.html">Download</a>
+      <a class="link active" href="docs.html">Docs</a>
+      <a class="link" href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="tight">
+      <h1>DOCUMENTATION</h1>
+      <p class="lead">Build the firmware, run the app, and understand the
+        Bluetooth protocol.</p>
+    </section>
+
+    <section class="tight">
+      <div class="grid cols-3">
+        <a class="panel card" href="https://github.com/apiwishboon-spec/Nexo/blob/main/docs/BUILD.md">
+          <h3>Build guide</h3>
+          <p class="muted">Prerequisites, PlatformIO firmware build, Flutter app
+            builds and platform configuration.</p>
+        </a>
+        <a class="panel card" href="https://github.com/apiwishboon-spec/Nexo/blob/main/docs/PROTOCOL.md">
+          <h3>BLE protocol</h3>
+          <p class="muted">The complete Nexo wire protocol, v2: framing, opcodes,
+            codecs and the Wi-Fi HTTP API.</p>
+        </a>
+        <a class="panel card" href="https://github.com/apiwishboon-spec/Nexo/blob/main/docs/TROUBLESHOOTING.md">
+          <h3>Troubleshooting</h3>
+          <p class="muted">Known issues and fixes for audio, Bluetooth and the
+            build toolchain.</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="tight">
+      <div class="panel prose">
+        <span class="label">Quick start</span>
+
+        <h2>Firmware</h2>
+        <pre><code>cd firmware
+export PATH="$HOME/Library/Python/3.13/bin:$PATH"
+pio run -e m5stack-cardputer   # -> .pio/build/m5stack-cardputer/firmware.bin
+pio test -e native             # portable core unit tests</code></pre>
+
+        <h2>Companion app</h2>
+        <pre><code>cd app
+flutter pub get
+flutter test
+flutter analyze
+flutter build macos --release
+flutter build apk --release --target-platform android-arm64</code></pre>
+
+        <h2>Hardware</h2>
+        <ul>
+          <li><strong>MCU:</strong> ESP32-S3 (M5Stack Cardputer / Stamp-S3A, 8&nbsp;MB flash).</li>
+          <li><strong>Audio:</strong> ES8311 codec over I²C, I²S to the speaker
+            (AMP_EN on GPIO46).</li>
+          <li><strong>Display:</strong> 240×135 ST7789.</li>
+          <li><strong>Storage:</strong> microSD for music, LittleFS on flash for
+            notes, homework and settings.</li>
+        </ul>
+
+        <h2>Protocol at a glance</h2>
+        <p>All device communication uses one GATT service. Requests are framed and
+          authenticated with a PIN; the first response byte is a status code.
+          Highlights of v2:</p>
+        <ul>
+          <li>Notes &amp; homework CRUD with revisions, tombstones and delta sync.</li>
+          <li>Device info, time sync (the Cardputer has no RTC), find / reboot /
+            factory reset.</li>
+          <li>Music list, playback control, now-playing and delete.</li>
+          <li>Optional Wi-Fi HTTP API for bulk music transfer and OTA updates.</li>
+        </ul>
+        <p class="muted">See <a href="https://github.com/apiwishboon-spec/Nexo/blob/main/docs/PROTOCOL.md">docs/PROTOCOL.md</a>
+          for the full specification.</p>
+      </div>
+    </section>
+
+    <section class="tight">
+      <div class="panel">
+        <span class="label">Source</span>
+        <p class="muted" style="margin-top:10px">The firmware and app live together
+          in one repository.</p>
+        <div class="btn-row">
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo">Repository</a>
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo/blob/main/README.md">README</a>
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo/issues">Issues</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap cols">
+      <div>© 2026 Apiwish Anutravanichkul · AGPL-3.0-or-later</div>
+      <div>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> ·
+        <a href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

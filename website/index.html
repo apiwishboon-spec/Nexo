@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexo — offline-first study toolkit for the M5Stack Cardputer</title>
+  <meta name="description" content="Nexo is an offline-first study toolkit for the M5Stack Cardputer with an Android and macOS companion app over Bluetooth and Wi-Fi." />
+  <link rel="icon" href="assets/img/logo.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap nav">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" /> NEXO</a>
+      <span class="spacer"></span>
+      <a class="link active" href="index.html">Home</a>
+      <a class="link" href="download.html">Download</a>
+      <a class="link" href="docs.html">Docs</a>
+      <a class="link" href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>STUDY TOOLKIT,<br />NO CLOUD.</h1>
+        <p class="lead">Nexo keeps your notes, homework and music on the
+          <strong>M5Stack Cardputer</strong> — offline-first, always yours.</p>
+        <p class="muted">A tiny ESP32-S3 device with a physical keyboard, paired
+          with an Android and macOS app over Bluetooth Low Energy and Wi-Fi.</p>
+        <div class="btn-row" style="margin-top:22px">
+          <a class="btn primary" href="download.html">Download</a>
+          <a class="btn" href="docs.html">Documentation</a>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <img class="art" src="assets/img/firmware-logo.png" alt="Nexo" />
+      </div>
+    </section>
+
+    <hr class="pixel-divider" />
+
+    <section class="tight">
+      <span class="label">What it does</span>
+      <h2 style="margin-top:12px">Everything lives on the device</h2>
+      <div class="grid cols-3">
+        <div class="panel card">
+          <div class="card-head"><span class="chip">Notes</span></div>
+          <p class="muted">Write and edit notes with a real keyboard. They persist
+            on the Cardputer and mirror to the app.</p>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><span class="chip">Homework</span></div>
+          <p class="muted">Track subjects, due dates and status, and sync changes
+            between the device and your phone.</p>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><span class="chip">Music</span></div>
+          <p class="muted">Play MP3/WAV from the SD card, with timer alarms and UI
+            sounds through the ES8311 codec.</p>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><span class="chip">Bluetooth</span></div>
+          <p class="muted">A NimBLE GATT server with PIN auth and multi-client
+            support — macOS and Android at once.</p>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><span class="chip">Wi-Fi</span></div>
+          <p class="muted">An optional access point serves a built-in web UI for
+            music upload/download and settings.</p>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><span class="chip">OTA</span></div>
+          <p class="muted">Update the firmware over the air, and keep the app
+            current with one-tap self-updates.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tight">
+      <span class="label">On the device</span>
+      <h2 style="margin-top:12px">A 240×135 pixel interface</h2>
+      <div class="shots">
+        <div class="shot"><img src="assets/img/screen-home.png" alt="Home" /><div class="cap">HOME</div></div>
+        <div class="shot"><img src="assets/img/screen-notes.png" alt="Notes" /><div class="cap">NOTES</div></div>
+        <div class="shot"><img src="assets/img/screen-homework.png" alt="Homework" /><div class="cap">HOMEWORK</div></div>
+        <div class="shot"><img src="assets/img/screen-music.png" alt="Music" /><div class="cap">MUSIC</div></div>
+        <div class="shot"><img src="assets/img/screen-calculator.png" alt="Calculator" /><div class="cap">CALCULATOR</div></div>
+        <div class="shot"><img src="assets/img/screen-timer.png" alt="Timer" /><div class="cap">TIMER</div></div>
+        <div class="shot"><img src="assets/img/screen-settings.png" alt="Settings" /><div class="cap">SETTINGS</div></div>
+        <div class="shot"><img src="assets/img/logo.png" alt="Nexo" /><div class="cap">NEXO</div></div>
+      </div>
+    </section>
+
+    <section class="tight">
+      <span class="label">How it works</span>
+      <h2 style="margin-top:12px">Device first, app second</h2>
+      <div class="grid cols-2">
+        <div class="panel">
+          <h3>1 · Notes &amp; homework on the go</h3>
+          <p class="muted">Type directly on the Cardputer. Everything is saved to
+            on-device flash with atomic writes — no account, no server.</p>
+        </div>
+        <div class="panel">
+          <h3>2 · Sync when you're together</h3>
+          <p class="muted">Open the app and it reconciles over Bluetooth, merging
+            offline edits with revisions and tombstones.</p>
+        </div>
+        <div class="panel">
+          <h3>3 · Move files over Wi-Fi</h3>
+          <p class="muted">Flip on the access point to drag in MP3s and manage the
+            SD card from any browser.</p>
+        </div>
+        <div class="panel">
+          <h3>4 · Update in place</h3>
+          <p class="muted">Flash new firmware over the air, and let the app update
+            itself from GitHub Releases.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tight" style="text-align:center">
+      <div class="panel" style="padding:32px">
+        <h2>Ready to build your own?</h2>
+        <p class="muted">Grab the firmware and the companion app. Free and open
+          source under the AGPL-3.0.</p>
+        <div class="btn-row" style="justify-content:center">
+          <a class="btn primary" href="download.html">Download Nexo</a>
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo">View source</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap cols">
+      <div>© 2026 Apiwish Anutravanichkul · AGPL-3.0-or-later</div>
+      <div>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> ·
+        <a href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download — Nexo</title>
+  <meta name="description" content="Download the Nexo firmware for the M5Stack Cardputer, the Android APK and the macOS app." />
+  <link rel="icon" href="assets/img/logo.png" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap nav">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" /> NEXO</a>
+      <span class="spacer"></span>
+      <a class="link" href="index.html">Home</a>
+      <a class="link active" href="download.html">Download</a>
+      <a class="link" href="docs.html">Docs</a>
+      <a class="link" href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="tight">
+      <h1>DOWNLOAD</h1>
+      <p class="lead">Everything is free and open source. All builds below are the
+        <strong>latest release</strong>.</p>
+      <p class="note">By downloading you agree to the
+        <a href="terms.html">Terms of Service</a> and
+        <a href="privacy.html">Privacy Policy</a>.</p>
+    </section>
+
+    <section class="tight">
+      <div class="grid cols-3">
+
+        <div class="panel dl">
+          <span class="label">Firmware</span>
+          <h2 style="margin-top:10px">Cardputer</h2>
+          <p class="meta">M5Stack Cardputer / Stamp-S3A · ESP32-S3 · 8&nbsp;MB flash</p>
+          <a class="btn primary block" href="https://github.com/apiwishboon-spec/Nexo/releases/latest/download/Nexo-m5stack-cardputer.bin">Download .bin</a>
+          <p class="meta" style="margin-top:14px">Chain-load with
+            <a href="https://github.com/bmorcelli/Launcher">Launcher</a>, or flash
+            to offset <code>0x10000</code>.</p>
+        </div>
+
+        <div class="panel dl">
+          <span class="label">Android</span>
+          <h2 style="margin-top:10px">Phone &amp; tablet</h2>
+          <p class="meta">Android 8+ · arm64</p>
+          <a class="btn primary block" href="https://github.com/apiwishboon-spec/Nexo/releases/latest/download/Nexo-android-release.apk">Download .apk</a>
+          <p class="meta" style="margin-top:14px">Enable <em>Install unknown apps</em>
+            for your browser, then open the file to install.</p>
+        </div>
+
+        <div class="panel dl">
+          <span class="label">macOS</span>
+          <h2 style="margin-top:10px">Desktop</h2>
+          <p class="meta">macOS 10.14+ · Apple silicon &amp; Intel</p>
+          <a class="btn primary block" href="https://github.com/apiwishboon-spec/Nexo/releases/latest/download/Nexo-macos-release.zip">Download .zip</a>
+          <p class="meta" style="margin-top:14px">Unzip and drag <code>Nexo.app</code>
+            into Applications. First launch: right-click → <em>Open</em>.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="tight">
+      <div class="panel">
+        <span class="label">Checksums &amp; older versions</span>
+        <p class="muted" style="margin-top:10px">Verify your download against
+          <code>SHA256SUMS</code>, or browse previous releases on GitHub.</p>
+        <div class="btn-row">
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo/releases/latest/download/SHA256SUMS">SHA256SUMS</a>
+          <a class="btn" href="https://github.com/apiwishboon-spec/Nexo/releases">All releases</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="tight">
+      <div class="panel prose">
+        <span class="label">Installation</span>
+        <h2 style="margin-top:10px">Firmware</h2>
+        <ul>
+          <li><strong>Launcher:</strong> copy <code>Nexo-m5stack-cardputer.bin</code>
+            into the Launcher <code>apps</code> folder on the SD card.</li>
+          <li><strong>Raw flash:</strong> write the image to offset
+            <code>0x10000</code> with esptool or PlatformIO.</li>
+        </ul>
+        <h2>Music</h2>
+        <ul>
+          <li>Copy MP3/WAV files into the <code>/music</code> folder of the SD card
+            (or upload them from the app over Wi-Fi).</li>
+        </ul>
+        <h2>Companion app</h2>
+        <ul>
+          <li>Pair over Bluetooth, enter the device PIN, and Nexo syncs your notes
+            and homework automatically.</li>
+          <li>The app checks GitHub Releases on launch and can update itself.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap cols">
+      <div>© 2026 Apiwish Anutravanichkul · AGPL-3.0-or-later</div>
+      <div>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> ·
+        <a href="https://github.com/apiwishboon-spec/Nexo">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
