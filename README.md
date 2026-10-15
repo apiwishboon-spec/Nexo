@@ -9,6 +9,8 @@ by [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher). The app keeps a
 local cache of the device's notes and homework, lets you edit them offline, and
 pushes/pulls changes over a small, documented BLE protocol.
 
+> **Website:** <https://nexo-6oa.pages.dev/> — downloads, docs, terms and privacy.
+
 > **Status:** firmware and app build cleanly and pass their test suites.
 > No physical Cardputer was connected during development, so nothing has been
 > flashed or hardware-tested. See `docs/TROUBLESHOOTING.md`.
@@ -33,6 +35,7 @@ Nexo/
 │   ├── lib/ble/            # flutter_blue_plus client
 │   ├── lib/state/          # AppState (sync engine)
 │   └── lib/screens/        # UI
+├── website/                # static info site (deployed on Cloudflare Pages)
 └── dist/                   # build artifacts
     ├── firmware/Nexo-m5stack-cardputer.bin
     └── app/Nexo-android-release.apk
@@ -87,6 +90,8 @@ flutter build apk --release           # Android APK
 ```
 
 See `docs/BUILD.md` for details and `docs/PROTOCOL.md` for the wire format.
+Prebuilt firmware and apps are on the [website](https://nexo-6oa.pages.dev/)
+and the [latest release](https://github.com/apiwishboon-spec/Nexo/releases/latest).
 
 ## License
 
