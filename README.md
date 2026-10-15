@@ -11,9 +11,10 @@ pushes/pulls changes over a small, documented BLE protocol.
 
 > **Website:** <https://nexo-6oa.pages.dev/> — downloads, docs, terms and privacy.
 
-> **Status:** firmware and app build cleanly and pass their test suites.
-> No physical Cardputer was connected during development, so nothing has been
-> flashed or hardware-tested. See `docs/TROUBLESHOOTING.md`.
+> **Status:** working release, tested on real hardware.
+> Built and flashed to a physical **M5Stack Cardputer-Adv**; boot, the on-device UI,
+> voice memos, music playback, BLE and Wi-Fi features were verified on-device.
+> Native unit tests pass. See `docs/TROUBLESHOOTING.md` for known issues.
 
 ## Repository layout
 
@@ -46,7 +47,11 @@ Nexo/
 **Cardputer firmware**
 - Notes (title + body) and Homework (subject, description, due date, status).
 - On-device UI: Home, Notes, Note view/edit, Homework, Homework edit,
-  Calculator, Timer, Music, Settings, About.
+  Calculator, Timer, Music, Memos, Settings, About.
+- Voice memos: record to `/memos` on the SD card as 16 kHz mono WAV and play
+  them back right on the device.
+- Home pane shows a little animated 8-bit character (orange cat or glasses kid),
+  selectable in Settings.
 - MP3/WAV player: drop files in the `/music` folder of the SD card
   (ESP32-audioI2S + ES8311 codec), plus timer-alarm and UI sound effects.
 - LittleFS persistence with atomic writes.
