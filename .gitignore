@@ -4,6 +4,11 @@
 # Build artifacts (published via GitHub Releases instead)
 dist/
 
+# Android release signing (never commit)
+app/android/key.properties
+app/android/app/*.keystore
+app/android/app/*.jks
+
 # PlatformIO
 firmware/.pio/
 

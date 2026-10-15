@@ -89,8 +89,51 @@ Both apps check GitHub Releases (`apiwishboon-spec/Nexo`) on launch and via
   download is revealed in Finder instead.
 
 To ship a release the updater will see: bump `version:` in `app/pubspec.yaml`
-and `kNexoVersion` in the firmware, tag `vX.Y.Z`, and attach
-`Nexo-android-release.apk` and `Nexo-macos-release.zip` to the GitHub release.
+and `kNexoVersion` in the firmware, then push a `vX.Y.Z` tag. The
+[`release` workflow](../.github/workflows/release.yml) builds the firmware, the
+Android APK and the macOS `.app`, generates `SHA256SUMS`, and attaches them to a
+GitHub release (using `docs/releases/vX.Y.Z.md` as the body when present).
+
+## Continuous integration & releases
+
+Cheap, slow work (PlatformIO builds, Flutter analyze/test, release builds) runs
+on GitHub Actions so it does not tie up a local machine.
+
+- **`ci.yml`** — on pushes to `main` and pull requests: firmware host unit tests
+  + firmware build, and `flutter analyze` + `flutter test`.
+- **`release.yml`** — on a `v*` tag (or manual dispatch): builds all three
+  artifacts and publishes a GitHub Release. The `FLUTTER_VERSION` env in both
+  workflows pins the SDK version.
+
+### Android release signing (important)
+
+By default the app signs releases with the **debug** keystore, which is unique per
+machine. A CI-built APK signed with a different debug key **cannot update a
+previously installed build in place** (Android rejects the signature mismatch).
+
+For consistent, updatable releases, create a keystore once and store it as
+repository secrets:
+
+```bash
+keytool -genkey -v -keystore release.keystore -alias nexo \
+  -keyalg RSA -keysize 2048 -validity 10000
+
+base64 -i release.keystore | gh secret set ANDROID_KEYSTORE_BASE64
+
+cat > key.properties <<'EOF'
+storePassword=<your-store-password>
+keyPassword=<your-key-password>
+keyAlias=nexo
+storeFile=release.keystore
+EOF
+gh secret set ANDROID_KEY_PROPERTIES < key.properties
+
+rm release.keystore key.properties   # keep a backup somewhere safe!
+```
+
+`android/app/build.gradle.kts` uses `android/key.properties` when present and
+falls back to the debug keystore otherwise. **Back up the keystore**: losing it
+means future builds can no longer update installed apps.
 
 ### Dependency notes
 

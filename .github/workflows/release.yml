@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v2.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  # Pinned to the version used for local development. Bump as needed.
+  FLUTTER_VERSION: '3.47.7'
+
+jobs:
+  firmware:
+    name: Firmware image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build
+        working-directory: firmware
+        run: pio run -e m5stack-cardputer
+
+      - name: Stage asset
+        run: cp firmware/.pio/build/m5stack-cardputer/firmware.bin Nexo-m5stack-cardputer.bin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: Nexo-m5stack-cardputer.bin
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Configure release signing
+        working-directory: app
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+            printf '%s\n' "$KEY_PROPERTIES" > android/key.properties
+            echo "Signing release build with keystore from secrets."
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 / ANDROID_KEY_PROPERTIES not set - the APK will be signed with a throwaway debug key and will NOT update in place. See docs/BUILD.md."
+          fi
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Stage asset
+        run: cp app/build/app/outputs/flutter-apk/app-release.apk Nexo-android-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: Nexo-android-release.apk
+          if-no-files-found: error
+
+  macos:
+    name: macOS app
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build
+        working-directory: app
+        run: flutter build macos --release
+
+      - name: Package .app
+        run: ditto -c -k --keepParent "app/build/macos/Build/Products/Release/Nexo.app" Nexo-macos-release.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Nexo-macos-release.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [firmware, android, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      - name: Resolve tag
+        run: echo "TAG=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
+
+      - name: Assemble assets and checksums
+        run: |
+          mkdir -p out
+          cp assets/firmware/Nexo-m5stack-cardputer.bin out/
+          cp assets/android/Nexo-android-release.apk out/
+          cp assets/macos/Nexo-macos-release.zip out/
+          cd out
+          sha256sum Nexo-*.bin Nexo-*.apk Nexo-*.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Resolve release notes
+        run: |
+          FILE="docs/releases/${TAG#v}.md"
+          if [ -f "$FILE" ]; then
+            echo "NOTES=$FILE" >> "$GITHUB_ENV"
+          else
+            printf '# Nexo %s\n\nAutomated build. See the assets below.\n' "$TAG" > out/notes.md
+            echo "NOTES=out/notes.md" >> "$GITHUB_ENV"
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Nexo ${{ env.TAG }}
+          body_path: ${{ env.NOTES }}
+          draft: false
+          files: |
+            out/Nexo-m5stack-cardputer.bin
+            out/Nexo-android-release.apk
+            out/Nexo-macos-release.zip
+            out/SHA256SUMS
