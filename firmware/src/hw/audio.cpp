@@ -27,11 +27,14 @@ constexpr uint8_t kSdSck = 40;
 constexpr uint8_t kSdMiso = 39;
 constexpr uint8_t kSdMosi = 14;
 constexpr uint8_t kSdCs = 12;
+// ES8311 I2S wiring (official Cardputer-Adv / Stamp-S3A pinmap):
+//   G41 = SCLK/BCLK, G43 = LRCK, G42 = DSDIN (speaker data into the codec).
+// G46 is the codec's ASDOUT (microphone data) and G8/G9 are the codec I2C pins.
+// There is no amplifier-enable GPIO: the NS4150B is driven straight from the
+// codec output and is muted in hardware when headphones are inserted.
 constexpr uint8_t kI2sBclk = 41;
 constexpr uint8_t kI2sLrck = 43;
 constexpr uint8_t kI2sDout = 42;
-constexpr uint8_t kAmpEnablePin = 46;
-constexpr uint8_t kHpDetectPin = 17;
 constexpr const char* kBeepPath = "/beep.wav";
 constexpr const char* kMusicDir = "/music";
 constexpr size_t kMaxTracks = 200;
@@ -43,7 +46,6 @@ uint8_t s_volume = 60;
 bool s_sdReady = false;
 bool s_beepReady = false;
 bool s_codecReady = false;
-bool s_lastHpIn = false;
 bool s_autoAdvance = true;
 std::vector<std::string> s_tracks;
 std::vector<uint32_t> s_sizes;
@@ -74,35 +76,13 @@ uint8_t codecRead(uint8_t reg)
     return M5.In_I2C.readRegister8(kEs8311Addr, reg, 100000);
 }
 
-// Applies the speaker-amp enable to match headphone state. On the Cardputer-Adv
-// the amp enable (GPIO46) is active HIGH: speaker ON when no headphones are
-// plugged in, OFF when they are (headphones are driven by the ES8311 directly).
-void applyAmpState()
+// Writes the ES8311 register sequence the Cardputer-Adv needs for speaker
+// output. This is byte-for-byte the sequence M5Unified uses for this board's
+// speaker callback — note there is no amplifier-enable GPIO involved. It must
+// run only while the I2S BCLK is already present, so it is called after the
+// decoder's setPinout() (see audioBegin).
+void codecConfigure()
 {
-    bool hpIn = (digitalRead(kHpDetectPin) == LOW);
-    s_lastHpIn = hpIn;
-    digitalWrite(kAmpEnablePin, hpIn ? LOW : HIGH);
-}
-
-// Re-reads headphone state; only rewrites the amp pin when it changes.
-void updateHeadphoneDetection()
-{
-    bool hpIn = (digitalRead(kHpDetectPin) == LOW);
-    if (hpIn != s_lastHpIn) {
-        s_lastHpIn = hpIn;
-        digitalWrite(kAmpEnablePin, hpIn ? LOW : HIGH);
-        Serial.printf("[audio] hp %s -> amp %s\n", hpIn ? "in" : "out", hpIn ? "off" : "on");
-    }
-}
-
-void initCodec()
-{
-    // Hold the speaker amp off while the codec powers up.
-    pinMode(kAmpEnablePin, OUTPUT);
-    digitalWrite(kAmpEnablePin, LOW);
-    pinMode(kHpDetectPin, INPUT_PULLUP);
-    delay(20);
-
     static const uint8_t kSeq[][2] = {
         {0x00, 0x80},  // RESET / CSM power on
         {0x01, 0xB5},  // clock manager: MCLK = BCLK
@@ -119,19 +99,13 @@ void initCodec()
     }
     s_codecReady = true;
 
-    // Enable the speaker amp to match the headphone jack (active HIGH). This is
-    // what the known-good Cardputer-Adv player does right after codec init; the
-    // earlier code left the amp held LOW forever, so the speaker stayed muted.
-    applyAmpState();
-
-    // Diagnostics: read back the codec id regs + the amp/HP pins.
+    // Diagnostics: read back the codec id/clk/volume registers.
     uint8_t r00 = codecRead(0x00), r01 = codecRead(0x01), r02 = codecRead(0x02);
     uint8_t r32 = codecRead(0x32);
     Serial.printf("[audio] es8311 ready id(0x00)=0x%02X clk(0x01)=0x%02X mul(0x02)=0x%02X vol(0x32)=0x%02X\n",
                   r00, r01, r02, r32);
-    Serial.printf("[audio] pins bclk=%d lrck=%d dout=%d amp=%d(%s) hp=%d(%s)\n", kI2sBclk, kI2sLrck,
-                  kI2sDout, kAmpEnablePin, (digitalRead(kAmpEnablePin) == HIGH) ? "on" : "off",
-                  kHpDetectPin, (digitalRead(kHpDetectPin) == LOW) ? "in" : "out");
+    Serial.printf("[audio] pins bclk=%d lrck=%d dout=%d (no amp gpio)\n", kI2sBclk, kI2sLrck,
+                  kI2sDout);
 }
 
 
@@ -301,12 +275,14 @@ void audioBegin()
     s_prefs.end();
     if (s_volume > 100) s_volume = 100;
 
-    // Power up the ES8311 and enable the speaker amp. ESP32-audioI2S owns
-    // I2S_NUM_0 (it installed the port in its own constructor), so we must NOT
-    // touch the raw I2S driver here — we only attach the pins and set volume.
-    initCodec();
+    // ESP32-audioI2S owns the I2S port (installed in its constructor). Attach the
+    // pins first so BCLK/LRCK are running, *then* configure the ES8311: the codec
+    // will not lock onto a clock that appears after it has already powered up.
+    // This ordering matches M5Unified's Cardputer-Adv speaker sequence.
     bool pinsOk =
         s_audio.setPinout(kI2sBclk, kI2sLrck, kI2sDout, I2S_PIN_NO_CHANGE, I2S_PIN_NO_CHANGE);
+    delay(10);
+    codecConfigure();
     s_audio.setVolume(toCodecVolume(s_enabled ? s_volume : 0));
     s_audio.setBalance(0);
     ensureBeepWav();
@@ -320,10 +296,7 @@ void audioBegin()
     if (s_enabled && s_beepReady) s_req_beep = true;
 }
 
-void audioLoop()
-{
-    updateHeadphoneDetection();
-}
+void audioLoop() {}
 
 bool audioEnabled() { return s_enabled; }
 
