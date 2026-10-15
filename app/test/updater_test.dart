@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Apiwish Anutravanichkul
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_app/services/updater.dart';
 
@@ -72,8 +74,14 @@ void main() {
 
     test('platformAsset matches the running host', () {
       final r = AppRelease.fromJson(_payload());
-      // These tests run on the macOS host, so the macOS asset is chosen.
-      expect(r.platformAsset?.name, 'Nexo-macos-release.zip');
+      // Resolve the expected asset for whatever platform the tests run on
+      // (macOS/Android locally, Linux on CI).
+      final expected = Platform.isAndroid
+          ? 'Nexo-android-release.apk'
+          : Platform.isMacOS
+              ? 'Nexo-macos-release.zip'
+              : null;
+      expect(r.platformAsset?.name, expected);
     });
   });
 
