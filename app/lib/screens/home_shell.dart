@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import '../state/update_state.dart';
 import '../theme.dart';
 import '../widgets/pixel_pet.dart';
 import '../widgets/pixel_ui.dart';
@@ -39,6 +40,20 @@ class _HomeShellState extends State<HomeShell> {
         context.read<AppState>().clearToast();
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(t)));
+      }
+
+      final upd = context.read<UpdateState>();
+      if (upd.hasUpdate && !upd.prompted) {
+        upd.prompted = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nexo ${upd.available!.version} is available'),
+            action: SnackBarAction(
+              label: 'Details',
+              onPressed: () => setState(() => _index = 5), // About tab
+            ),
+          ),
+        );
       }
     });
 

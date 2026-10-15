@@ -7,6 +7,7 @@ import '../protocol/constants.dart';
 import '../state/app_state.dart';
 import '../widgets/pixel_pet.dart';
 import '../widgets/pixel_ui.dart';
+import '../widgets/update_panel.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -104,6 +105,8 @@ class AboutScreen extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 16),
+          const UpdatePanel(),
           const SizedBox(height: 16),
           Text(
             'Nexo is offline-first: your notes and homework live on the '

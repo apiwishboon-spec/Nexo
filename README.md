@@ -61,6 +61,8 @@ Nexo/
   live time sync, and find/reboot/factory-reset actions.
 - Music library management: browse, play/pause/seek, set volume, and import
   tracks over the device's Wi-Fi AP; plus one-tap firmware updates.
+- Self-update: checks GitHub Releases on launch and installs a newer build in
+  one tap (Android) or one click (macOS).
 - Material 3 (Material You) theming, light/dark, phone and desktop layouts.
 
 ## Quick start

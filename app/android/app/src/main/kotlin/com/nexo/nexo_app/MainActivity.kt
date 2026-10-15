@@ -6,22 +6,43 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.Uri
 import android.net.wifi.WifiNetworkSpecifier
 import android.os.Build
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
 
     private val backgroundChannel = "com.nexo.nexo_app/background"
     private val wifiChannel = "com.nexo.nexo_app/wifi"
+    private val updaterChannel = "com.nexo.nexo_app/updater"
 
     private var wifiCallback: ConnectivityManager.NetworkCallback? = null
     private var wifiNetwork: Network? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, updaterChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "canInstall" -> result.success(canInstall())
+                    "openInstallSettings" -> {
+                        openInstallSettings()
+                        result.success(true)
+                    }
+                    "installApk" -> {
+                        val path = call.argument<String>("path")
+                        result.success(installApk(path))
+                    }
+                    else -> result.notImplemented()
+                }
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, backgroundChannel)
             .setMethodCallHandler { call, result ->
@@ -124,6 +145,41 @@ class MainActivity : FlutterActivity() {
         if (wifiNetwork != null) {
             cm.bindProcessToNetwork(null)
             wifiNetwork = null
+        }
+    }
+
+    private fun canInstall(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return packageManager.canRequestPackageInstalls()
+    }
+
+    private fun openInstallSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun installApk(path: String?): Boolean {
+        if (path.isNullOrEmpty()) return false
+        return try {
+            val file = File(path)
+            if (!file.exists()) return false
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 

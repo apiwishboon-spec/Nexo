@@ -70,9 +70,27 @@ flutter build apk --release
 - **Android** (`android/app/src/main/AndroidManifest.xml`): declares
   `BLUETOOTH_SCAN`/`BLUETOOTH_CONNECT` (Android 12+) and legacy
   `BLUETOOTH`/`BLUETOOTH_ADMIN`/`ACCESS_FINE_LOCATION`, plus the BLE feature.
-- **macOS** (`macos/Runner/*.entitlements`): the app-sandbox Bluetooth entitlement
-  `com.apple.security.device.bluetooth`. `Info.plist` includes
-  `NSBluetoothAlwaysUsageDescription`.
+  `REQUEST_INSTALL_PACKAGES` and a `FileProvider` (`res/xml/file_paths.xml`) let
+  the app hand a downloaded update to the system installer.
+- **macOS** (`macos/Runner/*.entitlements`): the **App Sandbox is disabled** so
+  the app can replace its own bundle in `/Applications` during a self-update.
+  Bluetooth works via `NSBluetoothAlwaysUsageDescription` in `Info.plist`.
+
+### In-app updates
+
+Both apps check GitHub Releases (`apiwishboon-spec/Nexo`) on launch and via
+**About → App updates**. When a newer release exists:
+
+- **Android** downloads `Nexo-android-release.apk` and launches the package
+  installer (the first time, allow "Install unknown apps" for Nexo).
+- **macOS** downloads `Nexo-macos-release.zip`, then a detached helper waits for
+  the app to quit, swaps `/Applications/Nexo.app` and relaunches it. If the app
+  is running from a read-only/translocated path the swap is skipped and the
+  download is revealed in Finder instead.
+
+To ship a release the updater will see: bump `version:` in `app/pubspec.yaml`
+and `kNexoVersion` in the firmware, tag `vX.Y.Z`, and attach
+`Nexo-android-release.apk` and `Nexo-macos-release.zip` to the GitHub release.
 
 ### Dependency notes
 
@@ -80,3 +98,8 @@ flutter build apk --release
   CoreBluetooth on Apple platforms and the Android BLE stack.
 - `shared_preferences` — local offline cache.
 - `provider` — state management.
+- `package_info_plus` — reads the running app version.
+- `path_provider` — temp directory for downloaded updates.
+- `url_launcher` — opens the release page as a fallback.
+- `pub_semver` — compares app/release versions.
+- `file_selector` — picks audio files to upload to the Cardputer.

@@ -5,13 +5,17 @@ import 'package:provider/provider.dart';
 
 import 'screens/home_shell.dart';
 import 'state/app_state.dart';
+import 'state/update_state.dart';
 import 'theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppState()..init(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppState()..init()),
+        ChangeNotifierProvider(create: (_) => UpdateState()..init()),
+      ],
       child: const NexoApp(),
     ),
   );
