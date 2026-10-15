@@ -293,28 +293,43 @@ constexpr int kArtScale = 3;
 // Orange tabby palette for the cat.
 constexpr uint16_t kFur = rgb(240, 158, 75);
 constexpr uint16_t kFurDark = rgb(201, 119, 46);
+// Warm brown palette for the owl.
+constexpr uint16_t kOwl = rgb(154, 108, 70);
+constexpr uint16_t kOwlDark = rgb(118, 80, 50);
+constexpr uint16_t kOwlBelly = rgb(233, 213, 178);
+constexpr uint16_t kBeak = rgb(242, 178, 66);
 
-// '#' outline  'f' fur  'F' fur shade  'e' eye  'u' pupil
-// 'p' pink     'h' hair 'g' glasses    'w' lens 's' skin   '.' transparent
-uint16_t artColor(char c, bool cat)
+// Cat: '#' outline  'f' fur  'F' fur shade  'p' pink  'e' eye  'u' pupil
+//      ':' whisker
+// Owl: '#' outline  'b' body 'B' wing  'w' belly  'y' beak  'e' eye  'u' pupil
+uint16_t artColor(char c, int kind)
 {
-    switch (c) {
-        case '#': return cat ? kOutline : kPrimary;
-        case 'f': return cat ? kFur : kSurface;
-        case 'F': return cat ? kFurDark : kSurfaceVariant;
+    if (kind == 1) {  // owl
+        switch (c) {
+            case '#': return kOutline;
+            case 'b': return kOwl;
+            case 'B': return kOwlDark;
+            case 'w': return kOwlBelly;
+            case 'y': return kBeak;
+            case 'e': return kOnSurface;
+            case 'u': return kOnSurfaceVariant;
+            case ':': return kOutline;
+        }
+        return 0;
+    }
+    switch (c) {  // cat
+        case '#': return kOutline;
+        case 'f': return kFur;
+        case 'F': return kFurDark;
+        case 'p': return kError;
         case 'e': return kOnSurface;
         case 'u': return kBackground;
-        case 'p': return kError;
-        case 'h': return kOnSurfaceVariant;
-        case 'g': return kPrimary;
-        case 'w': return kSurfaceVariant;
-        case 's': return kOnSurface;
-        case ':': return kOutline;  // whiskers
-        default: return 0;
+        case ':': return kOutline;
     }
+    return 0;
 }
 
-void blitArt(const char* const* rows, int x, int y, bool cat)
+void blitArt(const char* const* rows, int x, int y, int kind)
 {
     auto& d = M5Cardputer.Display;
     for (int r = 0; r < kArtH; ++r) {
@@ -322,7 +337,7 @@ void blitArt(const char* const* rows, int x, int y, bool cat)
         for (int c = 0; c < kArtW && line[c]; ++c) {
             if (line[c] == '.') continue;
             d.fillRect(x + c * kArtScale, y + r * kArtScale, kArtScale, kArtScale,
-                       artColor(line[c], cat));
+                       artColor(line[c], kind));
         }
     }
 }
@@ -335,13 +350,12 @@ void blinkCat(int x, int y)
     d.fillRect(x + 16 * kArtScale, y + 9 * kArtScale, 3 * kArtScale, kArtScale, kOutline);
 }
 
-void blinkKid(int x, int y)
+void blinkOwl(int x, int y)
 {
     auto& d = M5Cardputer.Display;
-    d.fillRect(x + 5 * kArtScale, y + 9 * kArtScale, 4 * kArtScale, kArtScale, kPrimary);
-    d.fillRect(x + 17 * kArtScale, y + 9 * kArtScale, 4 * kArtScale, kArtScale, kPrimary);
+    d.fillRect(x + 4 * kArtScale, y + 8 * kArtScale, 6 * kArtScale, kArtScale, kOutline);
+    d.fillRect(x + 16 * kArtScale, y + 8 * kArtScale, 6 * kArtScale, kArtScale, kOutline);
 }
-}  // namespace
 
 // A bobbing, blinking cat: ears, whiskers, tail.
 static const char* const kCatArt[kArtH] = {
@@ -360,31 +374,33 @@ static const char* const kCatArt[kArtH] = {
     "......#####....#####......", "......#fff#....#fff#......",
 };
 
-// A little kid with big round glasses.
-static const char* const kKidArt[kArtH] = {
-    "....hhh..hhh..hhh..hhh....", "...hhhhhhhhhhhhhhhhhhhh...",
-    "..hhhhhhhhhhhhhhhhhhhhhh..", "..hhhhhhhhhhhhhhhhhhhhhh..",
-    "..hssssssssssssssssssssh..", "..hssssssssssssssssssssh..",
-    "..hssssssssssssssssssssh..", "..hsggggggssssssggggggsh..",
-    "..hsgwwwwgssssssgwwwwgsh..", "..hsgweuwgssssssgweuwgsh..",
-    "..hsgwwwwgssssssgwwwwgsh..", "..hsgwwwwggggggggwwwwgsh..",
-    "..hsggggggssssssggggggsh..", "..hssssssssssssssssssssh..",
-    "..hsssssssssuusssssssssh..", "..hssssssssssssssssssssh..",
-    "...####################...", ".....#ssssssssssssss#.....",
-    ".....#ssssssssssssss#.....", "....#ssssssssssssssss#....",
-    "....#ssssssssssssssss#....", ".....#ssssssssssssss#.....",
-    ".....#ssssssssssssss#.....", ".....################.....",
-    "......####....####........", "......#ss#....#ss#........",
+// A round little owl: ear tufts, big eyes, a beak and folded wings.
+static const char* const kOwlArt[kArtH] = {
+    "...##................##...", "..####..............####..",
+    "..#####............#####..", ".########################.",
+    ".#bbbbbbbbbbbbbbbbbbbbbb#.", ".#bbbbbbbbbbbbbbbbbbbbbb#.",
+    ".#bbwwwwwwbbbbbbwwwwwwbb#.", ".#bbwwwwwwbbbbbbwwwwwwbb#.",
+    ".#bbwuuuuwbbbbbbwuuuuwbb#.", ".#bbwuuuuwbbyybbwuuuuwbb#.",
+    ".#bbwwwwwwbbyybbwwwwwwbb#.", ".#bbwwwwwwbbbbbbwwwwwwbb#.",
+    ".#bbbbbbbbbbbbbbbbbbbbbb#.", ".########################.",
+    "..#bbbbbbbbbbbbbbbbbbbb#..", "..#BbbbbbwwwwwwwwbbbbbB#..",
+    "..#BbbbbbwwwwwwwwbbbbbB#..", "..#BbbbbbwwwwwwwwbbbbbB#..",
+    "..#BbbbbbwwwwwwwwbbbbbB#..", "..#bbbbbbwwwwwwwwbbbbbb#..",
+    "..#bbbbbbwwwwwwwwbbbbbb#..", "..#bbbbbbbbbbbbbbbbbbbb#..",
+    "..#bbbbbbbbbbbbbbbbbbbb#..", "..######################..",
+    "......#y#......#y#........", "......yyy......yyy........",
 };
+
+}  // namespace
 
 void Ui::drawCharacter(int x, int y, int w, int h)
 {
     int bx = x + (w - kArtW * kArtScale) / 2;
     int by = y + (h - kArtH * kArtScale) / 2 + (int)((millis() / 500) % 2);
-    bool kid = homeChar_ == 1;
-    blitArt(kid ? kKidArt : kCatArt, bx, by, !kid);
+    bool owl = homeChar_ == 1;
+    blitArt(owl ? kOwlArt : kCatArt, bx, by, owl ? 1 : 0);
     if ((millis() % 4000u) >= 3850u) {  // brief blink every ~4s
-        if (kid) blinkKid(bx, by);
+        if (owl) blinkOwl(bx, by);
         else blinkCat(bx, by);
     }
 }
@@ -543,7 +559,7 @@ void Ui::drawSettings()
         "AP pass: " + std::string(wifi_ ? wifi_->apPassword().c_str() : "-"),
         std::string("Home pane: ") + (homePane_ == 1 ? "Character" : "Due today"),
         std::string("Screensaver: ") + (screensaver_ ? "Flip clock" : "Off"),
-        std::string("Home character: ") + (homeChar_ == 1 ? "Glasses kid" : "Cat"),
+        std::string("Home character: ") + (homeChar_ == 1 ? "Owl" : "Cat"),
         std::string("Lab tools: ") + (labUnlocked_ ? "unlocked" : "locked"),
         "Save & persist",
     };
@@ -692,7 +708,9 @@ void Ui::drawMemo()
     }
     d.setTextColor(kOnSurfaceVariant, kBackground);
     d.setCursor(kPad, kH - 12);
-    d.print("R rec   ENTER play   DEL erase");
+    char _f[40];
+    snprintf(_f, sizeof(_f), "R rec  ENTER play  DEL del   %d/%d", memoSel_ + 1, count);
+    d.print(_f);
 }
 
 void Ui::drawClock()
@@ -1362,7 +1380,7 @@ void Ui::handleKeys()
                 } else if (settingsSel_ == 10) {
                     homeChar_ = homeChar_ ? 0 : 1;
                     savePrefs();
-                    notify(homeChar_ ? "Character: glasses kid" : "Character: cat");
+                    notify(homeChar_ ? "Character: owl" : "Character: cat");
                 } else if (settingsSel_ == 11) {
                     labUnlocked_ = true;
                     savePrefs();

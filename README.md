@@ -18,7 +18,7 @@ pushes/pulls changes over a small, documented BLE protocol.
 
 <p align="center">
   <img src="docs/images/home-cat.png" alt="Home with the orange cat" width="320">
-  <img src="docs/images/home-kid.png" alt="Home with the glasses kid" width="320">
+  <img src="docs/images/home-owl.png" alt="Home with the owl" width="320">
 </p>
 
 A few more screens (Notes, Homework, Calculator, Timer, Settings, Music, Memos):
@@ -61,7 +61,7 @@ Nexo/
   Calculator, Timer, Music, Memos, Settings, About.
 - Voice memos: record to `/memos` on the SD card as 16 kHz mono WAV and play
   them back right on the device.
-- Home pane shows a little animated 8-bit character (orange cat or glasses kid),
+- Home pane shows a little animated 8-bit character (orange cat or owl (8-bit owl)),
   selectable in Settings.
 - MP3/WAV player: drop files in the `/music` folder of the SD card
   (ESP32-audioI2S + ES8311 codec), plus timer-alarm and UI sound effects.
