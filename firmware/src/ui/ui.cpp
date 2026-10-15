@@ -350,9 +350,9 @@ static const char* const kCatArt[kArtH] = {
     "..#ffffffffffffffffffff#..", "..#fffffffffuuffffffffff#..",
     "::#ffffffffffffffffffff#::", "..#ffffffffffffffffffff#..",
     "...####################...", ".....#ffffffffffffff#.#...",
-    ".....#ffffffffffffff###...", ".....#fffFFfffffFFff###...",
-    ".....#ffffffffffffff###...", ".....#ffffffffffffff###...",
-    ".....#ffffffffffffff###...", ".....################.....",
+    ".....#ffffffffffffff###..", ".....#fffFFfffffFFff###..",
+    ".....#ffffffffffffff###..", ".....#ffffffffffffff###..",
+    ".....#ffffffffffffff###..", ".....################.....",
     "......#####....#####......", "......#fff#....#fff#......",
 };
 
