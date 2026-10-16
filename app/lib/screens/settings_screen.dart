@@ -64,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: PixelPet(size: 32),
         ),
         leadingWidth: 52,
-        title: const Text('Device settings'),
+        title: const Text('Settings'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
