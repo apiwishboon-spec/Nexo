@@ -10,10 +10,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../ble/nexo_ble_client.dart';
 import '../models/models.dart';
+import '../services/ap_connector.dart';
 import '../services/speech_transcriber.dart';
 import '../services/wifi_joiner.dart';
 import '../services/wifi_transfer.dart';
@@ -38,11 +38,11 @@ class _MemosScreenState extends State<MemosScreen> {
   String? _message;
   bool _autoJoin = false;
 
-  String _ssid = '';
-  String _password = '';
+
   String _ip = '192.168.4.1';
   bool _apWasEnabled = false;
   Completer<void>? _manualJoin;
+  final ApConnector _ap = ApConnector();
 
   AppState? _app;
   WifiTransfer? _transfer;
@@ -87,6 +87,7 @@ class _MemosScreenState extends State<MemosScreen> {
     WifiJoiner.leave();
     _transfer?.close();
     _player.dispose();
+    _ap.dispose();
     if (_manualJoin != null && !_manualJoin!.isCompleted) {
       _manualJoin!.complete();
     }
@@ -116,47 +117,26 @@ class _MemosScreenState extends State<MemosScreen> {
     if (app == null) return;
     setState(() {
       _phase = _Phase.connecting;
-      _message = 'Switching on the device access point…';
+      _message = 'Preparing device Wi-Fi…';
     });
     try {
-      _apWasEnabled = app.settings.apEnabled;
-      await app.saveSettings(app.settings.copyWith(apEnabled: true, pin: null));
-      await Future.delayed(const Duration(milliseconds: 800));
-      await app.refreshDeviceDetails();
-      final d = app.details;
-      if (d == null) throw Exception('Device did not report Wi-Fi details.');
-      _ssid = d.apSsid.isNotEmpty ? d.apSsid : 'Nexo-AP';
-      _password = d.apPassword;
-      _ip = d.ip.isNotEmpty && d.ip != '-' ? d.ip : '192.168.4.1';
-
-      setState(() {
-        _phase = _Phase.joining;
-        _message = _autoJoin
-            ? 'Joining $_ssid…'
-            : 'Connect this device to Wi-Fi "$_ssid" (password "$_password"), '
-                'then tap Continue. The network has no internet — that is normal.';
-      });
-
-      if (_autoJoin) {
-        final ok = await WifiJoiner.join(ssid: _ssid, password: _password);
-        if (!ok) {
-          throw Exception('Could not join "$_ssid". Connect manually and continue.');
-        }
-        await Future.delayed(const Duration(milliseconds: 600));
-      } else {
+      ApCredentials creds;
+      try {
+        creds = await _ap.prepare(app, preferAutoJoin: true);
+      } catch (e) {
+        final m = e.toString().replaceFirst('Exception: ', '');
+        if (!mounted) rethrow;
+        setState(() {
+          _phase = _Phase.joining;
+          _message = m;
+        });
         _manualJoin = Completer<void>();
         await _manualJoin!.future;
+        creds = await _ap.prepare(app, preferAutoJoin: false);
       }
-
-      final transfer = _transfer ??= WifiTransfer(baseUrl: 'http://$_ip');
-      final pin = await app.savedPin();
-      try {
-        await transfer.login(pin);
-      } catch (_) {
-        throw Exception(
-            'Could not reach the device at $_ip. Make sure this device is '
-            'connected to Wi-Fi "$_ssid", then try again.');
-      }
+      _apWasEnabled = creds.apWasEnabled;
+      _ip = creds.ip;
+      _transfer ??= WifiTransfer(baseUrl: 'http://$_ip');
       await _loadMemos();
     } catch (e) {
       if (!mounted) return;
@@ -188,16 +168,7 @@ class _MemosScreenState extends State<MemosScreen> {
   }
 
   Future<void> _openWifiSettings() async {
-    final candidates = Platform.isMacOS
-        ? const ['x-apple.systempreferences:com.apple.wifi-settings-extension']
-        : const ['android.settings.WIFI_SETTINGS'];
-    for (final c in candidates) {
-      try {
-        if (await launchUrl(Uri.parse(c))) return;
-      } catch (_) {
-        // try the next candidate
-      }
-    }
+    await ApConnector.openWifiSettings();
   }
 
   Directory? _memosDirCache;
