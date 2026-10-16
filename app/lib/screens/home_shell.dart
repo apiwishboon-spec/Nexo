@@ -11,6 +11,7 @@ import '../widgets/pixel_ui.dart';
 import 'about_screen.dart';
 import 'device_screen.dart';
 import 'homework_screen.dart';
+import 'memos_screen.dart';
 import 'notes_screen.dart';
 import 'settings_screen.dart';
 
@@ -49,7 +50,7 @@ class _HomeShellState extends State<HomeShell> {
             content: Text('Nexo ${upd.available!.version} is available'),
             action: SnackBarAction(
               label: 'Details',
-              onPressed: () => setState(() => _index = 4), // About tab
+              onPressed: () => setState(() => _index = 5), // About tab
             ),
           ),
         );
@@ -60,6 +61,7 @@ class _HomeShellState extends State<HomeShell> {
       NotesScreen(),
       HomeworkScreen(),
       DeviceScreen(),
+      MemosScreen(),
       SettingsScreen(),
       AboutScreen(),
     ];
@@ -94,21 +96,26 @@ class _HomeShellState extends State<HomeShell> {
                   selectedIcon: Icon(Icons.school),
                   label: Text('Homework'),
                 ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.bluetooth_outlined),
-                  selectedIcon: Icon(Icons.bluetooth),
-                  label: Text('Device'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: Text('Settings'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.info_outline),
-                  selectedIcon: Icon(Icons.info),
-                  label: Text('About'),
-                ),
+            NavigationRailDestination(
+              icon: Icon(Icons.bluetooth_outlined),
+              selectedIcon: Icon(Icons.bluetooth),
+              label: Text('Device'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.mic_outlined),
+              selectedIcon: Icon(Icons.mic),
+              label: Text('Memos'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: Text('Settings'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.info_outline),
+              selectedIcon: Icon(Icons.info),
+              label: Text('About'),
+            ),
               ],
             ),
             const VerticalDivider(width: 2, thickness: 2),
@@ -142,6 +149,11 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icon(Icons.bluetooth_outlined),
               selectedIcon: Icon(Icons.bluetooth),
               label: 'Device',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.mic_outlined),
+              selectedIcon: Icon(Icons.mic),
+              label: 'Memos',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),

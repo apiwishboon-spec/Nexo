@@ -231,9 +231,13 @@ class _MemosScreenState extends State<MemosScreen> {
     try {
       final f = await _localFile(index);
       await _player.setFilePath(f.path);
-      _playingIndex = index;
-      await _player.play();
-      if (mounted) setState(() => _playing = true);
+      if (!mounted) return;
+      setState(() {
+        _playingIndex = index;
+        _playing = true;
+      });
+      // play() completes only when playback finishes, so don't await it.
+      unawaited(_player.play());
     } catch (e) {
       if (mounted) setState(() => _message = 'Could not play: $e');
     } finally {
