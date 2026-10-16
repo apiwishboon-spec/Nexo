@@ -33,12 +33,18 @@ class WifiTransfer {
     return _Resp(res.statusCode, body);
   }
 
-  /// Authenticates with the device PIN. Throws on failure.
+  /// Authenticates with the device PIN. Throws on failure. Times out quickly so
+  /// a device that is not reachable (e.g. the phone never joined the AP) fails
+  /// with a clear error instead of hanging.
   Future<void> login(String pin) async {
     final req = await _client.postUrl(_u('/api/login'));
     req.headers.contentType = ContentType.json;
     req.write(jsonEncode({'pin': pin}));
-    final res = await _send(req);
+    final res = await _send(req).timeout(
+      const Duration(seconds: 12),
+      onTimeout: () => throw HttpException(
+          'Timed out reaching the device. Connect to its Wi-Fi first.'),
+    );
     if (res.status != 200) {
       throw HttpException('Login failed (${res.status})');
     }

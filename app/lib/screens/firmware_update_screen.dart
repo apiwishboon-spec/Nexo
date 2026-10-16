@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Apiwish Anutravanichkul
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../ble/nexo_ble_client.dart';
 import '../services/updater.dart';
@@ -61,6 +63,9 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
   XFile? _file;
   double _progress = 0;
 
+  /// Completed when the user confirms they have joined the device AP manually.
+  Completer<void>? _manualJoin;
+
   AppState? _app;
   WifiTransfer? _transfer;
   final Updater _updater = Updater();
@@ -87,6 +92,9 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
     WifiJoiner.leave();
     _transfer?.close();
     _updater.close();
+    if (_manualJoin != null && !_manualJoin!.isCompleted) {
+      _manualJoin!.complete();
+    }
     super.dispose();
   }
 
@@ -136,6 +144,26 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
     setState(() => _file = f);
   }
 
+  void _finishManualJoin() {
+    final m = _manualJoin;
+    if (m != null && !m.isCompleted) m.complete();
+    setState(() => _message = 'Checking the connection…');
+  }
+
+  Future<void> _openWifiSettings() async {
+    // Best-effort deep link to the platform's Wi-Fi settings.
+    final candidates = Platform.isMacOS
+        ? const ['x-apple.systempreferences:com.apple.wifi-settings-extension']
+        : const ['android.settings.WIFI_SETTINGS'];
+    for (final c in candidates) {
+      try {
+        if (await launchUrl(Uri.parse(c))) return;
+      } catch (_) {
+        // try the next candidate
+      }
+    }
+  }
+
   /// Brings the device AP up over BLE and joins it. Sets [_ssid]/[_password]/
   /// [_ip]; leaves the phase at `ready`.
   Future<void> _enableApAndJoin() async {
@@ -158,7 +186,8 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
       _phase = _OtaPhase.joining;
       _message = _autoJoin
           ? 'Joining $_ssid…'
-          : 'Connect your phone to Wi-Fi "$_ssid" (password "$_password"), then tap Continue.';
+          : 'Connect this device to Wi-Fi "$_ssid" (password "$_password"), '
+              'then tap Continue. The network has no internet — that is normal.';
     });
     if (_autoJoin) {
       final ok = await WifiJoiner.join(ssid: _ssid, password: _password);
@@ -166,6 +195,20 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
         throw Exception('Could not join "$_ssid". Connect manually and continue.');
       }
       await Future.delayed(const Duration(milliseconds: 600));
+    } else {
+      // Wait for the user to join the AP and tap Continue — otherwise the
+      // upload would start before the device is reachable and hang.
+      _manualJoin = Completer<void>();
+      await _manualJoin!.future;
+      final transfer = _transfer ??= WifiTransfer(baseUrl: 'http://$_ip');
+      final pin = await app.savedPin();
+      try {
+        await transfer.login(pin);
+      } catch (_) {
+        throw Exception(
+            'Could not reach the device at $_ip. Make sure this device is '
+            'connected to Wi-Fi "$_ssid", then try again.');
+      }
     }
     setState(() {
       _phase = _OtaPhase.ready;
@@ -426,11 +469,24 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
                   : 'Install'),
             ),
 
-          if (_phase == _OtaPhase.enablingAp || _phase == _OtaPhase.joining)
+          if (_phase == _OtaPhase.enablingAp ||
+              (_phase == _OtaPhase.joining && _autoJoin))
             const Center(child: CircularProgressIndicator()),
 
-          if (_phase == _OtaPhase.joining && !_autoJoin)
+          if (_phase == _OtaPhase.joining && !_autoJoin) ...[
             const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _finishManualJoin,
+              icon: const Icon(Icons.check),
+              label: const Text('I\'m connected — continue'),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _openWifiSettings,
+              icon: const Icon(Icons.wifi),
+              label: const Text('Open Wi-Fi settings'),
+            ),
+          ],
 
           if (busy &&
               (_phase == _OtaPhase.downloading ||
