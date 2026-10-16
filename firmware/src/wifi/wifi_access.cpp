@@ -11,6 +11,7 @@
 #include <esp_wifi.h>
 
 #include "hw/audio.h"
+#include "ble/ble_service.h"
 #include "nexo_codec.h"
 
 namespace nexo {
@@ -136,9 +137,10 @@ String WifiAccess::ipString() const
     return WiFi.softAPIP().toString();
 }
 
-void WifiAccess::begin(NexoApp* app)
+void WifiAccess::begin(NexoApp* app, BleService* ble)
 {
     app_ = app;
+    ble_ = ble;
     // Random session token + AP password derived from the Wi-Fi MAC. Read the MAC
     // from eFuse so this works before the Wi-Fi driver is initialised.
     uint32_t r = esp_random();
@@ -174,9 +176,12 @@ void WifiAccess::applyEnabled()
 
         WiFi.mode(WIFI_AP);
         WiFi.setSleep(false);  // keep the AP responsive alongside BLE
+        // Gentle TX power bump to help throughput without risking brownouts.
+        WiFi.setTxPower(WIFI_POWER_19_5dBm);
         IPAddress ip(192, 168, 4, 1), gw(192, 168, 4, 1), mask(255, 255, 255, 0);
         WiFi.softAPConfig(ip, gw, mask);
-        bool ok = WiFi.softAP(ssid.c_str(), apPassword_.c_str());
+        // Channel 6, HT20, max 1 connection for stability during bulk transfers.
+        bool ok = WiFi.softAP(ssid.c_str(), apPassword_.c_str(), 6, false, 1);
         if (!ok) {
             Serial.println("[nexo] softAP start failed");
             WiFi.mode(WIFI_OFF);
@@ -340,6 +345,17 @@ void WifiAccess::setupRoutes()
 
 void WifiAccess::loop()
 {
+    // OTA idle timeout: if streaming started but no bytes for 15s, abort.
+    if (otaStarted_) {
+        uint32_t now = millis();
+        if ((uint32_t)(now - otaLastByte_) > 15000) {
+            Serial.println("[ota] idle timeout, aborting");
+            Update.abort();
+            otaStarted_ = false;
+            otaOk_ = false;
+            if (ble_) ble_->resumeAfterBulk();
+        }
+    }
     if (enabled_ && started_ && server_) server_->handleClient();
     labTick();
 }
@@ -757,15 +773,37 @@ void WifiAccess::handleMusicUploadStream()
         if (uploadFile_) {
             uploadOk_ = true;
             uploadName_ = name;
+            uploadBufUsed_ = 0;
         }
     } else if (up.status == UPLOAD_FILE_WRITE) {
-        if (uploadOk_ && uploadFile_) uploadFile_.write(up.buf, up.currentSize);
+        if (uploadOk_ && uploadFile_) {
+            const size_t n = up.currentSize;
+            size_t written = 0;
+            while (written < n) {
+                const size_t space = kUploadBufSize - uploadBufUsed_;
+                const size_t take = (n - written < space) ? (n - written) : space;
+                memcpy(uploadBuf_ + uploadBufUsed_, up.buf + written, take);
+                uploadBufUsed_ += take;
+                written += take;
+                if (uploadBufUsed_ == kUploadBufSize) {
+                    uploadFile_.write(uploadBuf_, kUploadBufSize);
+                    uploadBufUsed_ = 0;
+                }
+            }
+        }
     } else if (up.status == UPLOAD_FILE_END) {
-        if (uploadFile_) uploadFile_.close();
+        if (uploadFile_) {
+            if (uploadBufUsed_ > 0) {
+                uploadFile_.write(uploadBuf_, uploadBufUsed_);
+                uploadBufUsed_ = 0;
+            }
+            uploadFile_.close();
+        }
         if (uploadOk_) musicRescan();
     } else if (up.status == UPLOAD_FILE_ABORTED) {
         if (uploadFile_) uploadFile_.close();
         uploadOk_ = false;
+        uploadBufUsed_ = 0;
     }
 }
 
@@ -796,18 +834,27 @@ void WifiAccess::handleOtaStream()
         otaStarted_ = false;
         otaOk_ = false;
         otaWritten_ = 0;
-        if (!otaAuth_) return;
+        otaLastByte_ = millis();
+        if (ble_) ble_->pauseForBulk();
+        if (!otaAuth_) {
+            if (ble_) ble_->resumeAfterBulk();
+            return;
+        }
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
             Serial.printf("[ota] begin failed: %s\n", Update.errorString());
+            if (ble_) ble_->resumeAfterBulk();
             return;
         }
         otaStarted_ = true;
         Serial.println("[ota] update started");
     } else if (up.status == UPLOAD_FILE_WRITE) {
         if (!otaStarted_) return;
+        otaLastByte_ = millis();
         if (Update.write(up.buf, up.currentSize) != up.currentSize) {
             Serial.printf("[ota] write failed: %s\n", Update.errorString());
+            Update.abort();
             otaStarted_ = false;
+            if (ble_) ble_->resumeAfterBulk();
             return;
         }
         otaWritten_ += up.currentSize;
@@ -816,20 +863,24 @@ void WifiAccess::handleOtaStream()
         otaOk_ = Update.end(true);
         Serial.printf("[ota] %s wrote %u bytes\n", otaOk_ ? "ok" : "FAILED",
                       (unsigned)otaWritten_);
+        if (ble_) ble_->resumeAfterBulk();
     } else if (up.status == UPLOAD_FILE_ABORTED) {
         Update.abort();
         otaStarted_ = false;
         otaOk_ = false;
+        if (ble_) ble_->resumeAfterBulk();
     }
 }
 
 void WifiAccess::handleOtaDone()
 {
+    if (ble_) ble_->resumeAfterBulk();
     if (!otaAuth_) {
         sendJson(401, "{\"error\":\"unauthorized\"}");
         return;
     }
     if (!otaOk_) {
+        Update.abort();
         sendJson(400, "{\"error\":\"update failed\"}");
         return;
     }

@@ -283,6 +283,33 @@ void BleService::stopSpam()
     Serial.println("[lab] ble spam stop");
 }
 
+void BleService::pauseForBulk()
+{
+    if (bulkPaused_) return;
+    bulkPaused_ = true;
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (adv) {
+        adv->stop();
+    }
+    // Drop any active connections to free radio for Wi-Fi bulk transfer.
+    if (server_ && connCount_ > 0) {
+        server_->disconnect(0);
+        pendingDisconnect_ = true;
+    }
+}
+
+void BleService::resumeAfterBulk()
+{
+    if (!bulkPaused_) return;
+    bulkPaused_ = false;
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (adv) {
+        adv->setName(deviceName_);
+        adv->start();
+    }
+    spamActive_ = false;
+}
+
 void BleService::spamTick()
 {
     uint32_t now = millis();

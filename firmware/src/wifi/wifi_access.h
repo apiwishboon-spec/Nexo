@@ -13,6 +13,7 @@
 #include "app/nexo_app.h"
 
 namespace nexo {
+class BleService;
 
 class WifiAccess {
 public:
@@ -24,7 +25,7 @@ public:
         bool secure = false;
     };
 
-    void begin(NexoApp* app);
+    void begin(NexoApp* app, BleService* ble = nullptr);
     void loop();
 
     void setEnabled(bool on);
@@ -79,6 +80,8 @@ private:
     void handleOtaDone();
     void handleOtaStream();
 
+    class BleService* ble_ = nullptr;
+
     NexoApp* app_ = nullptr;
     WebServer* server_ = nullptr;
     bool enabled_ = false;
@@ -91,12 +94,16 @@ private:
     bool uploadAuth_ = false;
     bool uploadOk_ = false;
     String uploadName_;
+    static constexpr size_t kUploadBufSize = 16384;
+    uint8_t uploadBuf_[kUploadBufSize];
+    size_t uploadBufUsed_ = 0;
 
     // In-flight OTA state.
     bool otaAuth_ = false;
     bool otaStarted_ = false;
     bool otaOk_ = false;
     size_t otaWritten_ = 0;
+    uint32_t otaLastByte_ = 0;
 
     // Lab: scan + beacon spam state.
     void labTick();

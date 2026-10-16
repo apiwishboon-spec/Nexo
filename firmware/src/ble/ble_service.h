@@ -44,6 +44,12 @@ public:
     void notifyDataChanged();
     void updateStatus();
 
+    // Bulk transfer helpers: pause/resume BLE activity to maximize Wi-Fi
+    // throughput (radio coexistence). Dropping active connections is
+    // preferable during large transfers; advertising is stopped at minimum.
+    void pauseForBulk();
+    void resumeAfterBulk();
+
     // One-shot UI events, set while handling a request in loop() (Arduino task)
     // and consumed by the UI on the same task. Each returns true at most once.
     bool consumePairedEvent();
@@ -102,6 +108,7 @@ private:
     bool spamActive_ = false;
     int spamIndex_ = 0;
     uint32_t spamNext_ = 0;
+    bool bulkPaused_ = false;
 };
 
 }  // namespace nexo

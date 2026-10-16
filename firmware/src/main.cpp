@@ -56,7 +56,7 @@ void setup()
     gBle.begin(&gApp, name);
     Serial.printf("[nexo] BLE advertising as %s\n", name.c_str());
 
-    gWifi.begin(&gApp);
+    gWifi.begin(&gApp, &gBle);
     gWifi.setEnabled(gApp.settings().apEnabled);
 
     gUi.begin(&gApp, &gBle, &gWifi);
