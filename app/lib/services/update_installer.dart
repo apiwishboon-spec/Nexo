@@ -66,6 +66,32 @@ class UpdateInstaller {
     }
   }
 
+  /// macOS only: whether the running bundle must be moved to /Applications
+  /// before self-update can work (Gatekeeper translocation or read-only path).
+  static Future<bool> needsRelocation() async {
+    if (!Platform.isMacOS) return false;
+    try {
+      return await _channel.invokeMethod<bool>('needsRelocation') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// macOS only: moves the running bundle to /Applications and relaunches it.
+  /// Returns false when the app is already in a good location.
+  static Future<bool> relocate() async {
+    if (!Platform.isMacOS) return false;
+    try {
+      return await _channel.invokeMethod<bool>('relocate') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   /// macOS: reveals a file in Finder.
   static Future<void> reveal(String path) async {
     if (!Platform.isMacOS) return;

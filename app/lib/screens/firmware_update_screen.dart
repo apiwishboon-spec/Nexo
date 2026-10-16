@@ -13,7 +13,6 @@ import '../services/wifi_joiner.dart';
 import '../services/wifi_transfer.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
-import '../widgets/pixel_pet.dart';
 import '../widgets/pixel_ui.dart';
 
 /// Installs firmware onto the Cardputer over Wi-Fi. The image is either pulled
@@ -281,11 +280,8 @@ class _FirmwareUpdateScreenState extends State<FirmwareUpdateScreen> {
     return Scaffold(
       backgroundColor: NexoColors.background,
       appBar: AppBar(
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: PixelPet(size: 32),
-        ),
-        leadingWidth: 52,
+        leading: const PixelBackLeading(),
+        leadingWidth: 96,
         title: const Text('Firmware update'),
       ),
       body: ListView(

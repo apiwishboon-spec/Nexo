@@ -3,6 +3,28 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'pixel_pet.dart';
+
+/// AppBar leading for pushed (sub) screens: a back button plus the mascot, so
+/// you can always get back even when the screen overrides the default leading.
+class PixelBackLeading extends StatelessWidget {
+  const PixelBackLeading({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const PixelPet(size: 30),
+      ],
+    );
+  }
+}
 
 /// Faint pixel grid painted behind every screen for an 8-bit feel.
 class PixelGrid extends StatelessWidget {

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
-import '../widgets/pixel_pet.dart';
 import '../widgets/pixel_ui.dart';
 
 class HomeworkEditScreen extends StatefulWidget {
@@ -107,11 +106,8 @@ class _HomeworkEditScreenState extends State<HomeworkEditScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: PixelPet(size: 32),
-        ),
-        leadingWidth: 52,
+        leading: const PixelBackLeading(),
+        leadingWidth: 96,
         title: Text(isNew ? 'Add homework' : 'Edit homework'),
         actions: [
           if (!isNew)

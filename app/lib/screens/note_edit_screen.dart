@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
-import '../widgets/pixel_pet.dart';
+import '../widgets/pixel_ui.dart';
 
 class NoteEditScreen extends StatefulWidget {
   const NoteEditScreen({super.key, this.note});
@@ -62,11 +62,8 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: PixelPet(size: 32),
-        ),
-        leadingWidth: 52,
+        leading: const PixelBackLeading(),
+        leadingWidth: 96,
         title: Text(isNew ? 'New note' : 'Edit note'),
         actions: [
           if (!isNew)

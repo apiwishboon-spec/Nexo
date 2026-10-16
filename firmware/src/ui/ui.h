@@ -33,7 +33,6 @@ private:
         Timer,
         Settings,
         About,
-        Music,
         Memo,       // voice memos (record/play/delete)
         Clock,      // idle flip-clock screensaver
         Lab,        // hidden tools menu
@@ -64,7 +63,6 @@ private:
     void drawTimer();
     void drawSettings();
     void drawAbout();
-    void drawMusic();
     void drawMemo();
     void drawClock();
     void drawLab();
@@ -147,10 +145,6 @@ private:
     bool editingText_ = false;
     std::string editBuffer_;
 
-    // Music
-    int musicSel_ = 0;
-    int musicScroll_ = 0;
-
     // Voice memos
     int memoSel_ = 0;
     int memoScroll_ = 0;
@@ -168,7 +162,7 @@ private:
 
     // Home layout: left pane shows either today's tasks or the character.
     int homePane_ = 0;   // 0 = due today, 1 = character
-    int homeChar_ = 0;   // 0 = cat, 1 = glasses kid
+    int homeChar_ = 0;   // 0 = cat, 1 = owl
     std::vector<Homework> dueToday_;
     Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
     uint32_t petDrawAt_ = 0;

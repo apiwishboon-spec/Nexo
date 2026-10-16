@@ -34,6 +34,10 @@ class UpdateState extends ChangeNotifier {
   bool autoCheck = true;
   DateTime? lastChecked;
 
+  /// macOS: true when Nexo is running from a translocated/read-only path and
+  /// must be moved to /Applications before it can self-update.
+  bool needsRelocation = false;
+
   /// Set once per session after we've offered an update, to avoid nagging.
   bool prompted = false;
 
@@ -55,10 +59,30 @@ class UpdateState extends ChangeNotifier {
     if (ms != null) {
       lastChecked = DateTime.fromMillisecondsSinceEpoch(ms);
     }
+    needsRelocation = await UpdateInstaller.needsRelocation();
     notifyListeners();
     if (autoCheck) {
       // Fire-and-forget silent check shortly after launch.
       await check(silent: true);
+    }
+  }
+
+  /// macOS only: moves the app to /Applications and relaunches it.
+  Future<void> relocate() async {
+    status = 'Moving Nexo to /Applications…';
+    error = null;
+    notifyListeners();
+    try {
+      final ok = await UpdateInstaller.relocate();
+      if (!ok) {
+        needsRelocation = false;
+        status = 'Nexo is already in a good location.';
+      }
+      // On success the app quits and relaunches from /Applications.
+    } catch (e) {
+      error = 'Could not move Nexo: $e';
+    } finally {
+      notifyListeners();
     }
   }
 

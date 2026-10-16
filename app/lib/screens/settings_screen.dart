@@ -27,7 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _soundEnabled = true;
   int _brightness = 100;
   int _screenTimeout = 30;
-  bool _autoAdvance = true;
   bool _loaded = false;
 
   @override
@@ -47,7 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _soundEnabled = app.settings.soundEnabled;
     _brightness = app.settings.brightness;
     _screenTimeout = app.settings.screenTimeoutSec;
-    _autoAdvance = app.settings.autoAdvanceMusic;
     _loaded = true;
   }
 
@@ -199,13 +197,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
             onChanged: (v) => setState(() => _screenTimeout = v ?? 30),
           ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            value: _autoAdvance,
-            title: const Text('Auto-advance music'),
-            subtitle: const Text('Play the next track when one finishes'),
-            onChanged: (v) => setState(() => _autoAdvance = v),
-          ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: app.busy ? null : _save,
@@ -306,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       soundEnabled: _soundEnabled,
       brightness: _brightness,
       screenTimeoutSec: _screenTimeout,
-      autoAdvanceMusic: _autoAdvance,
+      autoAdvanceMusic: app.settings.autoAdvanceMusic,
       timezoneOffsetMin: app.settings.timezoneOffsetMin,
       pin: newPin.isEmpty ? null : newPin,
     );

@@ -284,8 +284,6 @@ class _DeviceScreenState extends State<DeviceScreen> {
                     : 'No SD card',
                 scheme,
                 icon: Icons.sd_card),
-            _detailRow('Tracks', '${d.musicCount}', scheme,
-                icon: Icons.music_note),
             _detailRow('Free heap', '${d.freeHeapKiB} KiB', scheme),
             _detailRow('Uptime', _fmtUptime(d.uptimeSec), scheme),
             _detailRow('IP', d.ip.isEmpty ? '-' : d.ip, scheme,

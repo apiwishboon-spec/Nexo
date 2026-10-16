@@ -52,7 +52,7 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
     ble_ = ble;
     wifi_ = wifi;
     menuItems_ = {"Quick Notes", "Homework", "Calculator", "Timer",
-                  "Settings",   "About",   "Music",      "Memos"};
+                  "Settings",   "About",   "Memos"};
     screen_ = Screen::Splash;
     splashUntil_ = millis() + 1600;
     sel_ = 0;
@@ -619,30 +619,9 @@ void Ui::drawAbout()
 
     d.setTextColor(kOnSurfaceVariant, kBackground);
     wrappedText(
-        "Offline-first notes, homework, calculator, timer and music for the "
-        "M5Stack Cardputer. Sync over BLE.",
+        "Offline-first notes, homework, calculator, timer and voice memos for "
+        "the M5Stack Cardputer. Sync over BLE.",
         kPad, kContentTop + kFirmwareLogoH + 18, kW - 2 * kPad, 2);
-}
-
-void Ui::drawMusic()
-{
-    auto& d = M5Cardputer.Display;
-    int count = musicCount();
-    drawHeader("Music", count > 0 ? std::to_string(count) : std::string());
-    if (count == 0) {
-        drawEmptyState("No audio on SD");
-        return;
-    }
-    const int visible = 4;
-    if (musicSel_ < musicScroll_) musicScroll_ = musicSel_;
-    if (musicSel_ >= musicScroll_ + visible) musicScroll_ = musicSel_ - visible + 1;
-    int y = kContentTop;
-    for (int i = musicScroll_; i < count && i < musicScroll_ + visible; ++i) {
-        std::string sub = (i == musicIndex()) ? (musicPlaying() ? "Playing" : "Paused")
-                                              : ("Track " + std::to_string(i + 1));
-        drawListRow(y, kRowH, musicTitle(i), sub, i == musicSel_);
-        y += kRowH;
-    }
 }
 
 void Ui::drawMemo()
@@ -861,7 +840,6 @@ void Ui::draw()
         case Screen::Timer: drawTimer(); break;
         case Screen::Settings: drawSettings(); break;
         case Screen::About: drawAbout(); break;
-        case Screen::Music: drawMusic(); break;
         case Screen::Memo: drawMemo(); break;
         case Screen::Clock: drawClock(); break;
         case Screen::Lab: drawLab(); break;
@@ -890,12 +868,7 @@ void Ui::openMenu()
         case 3: screen_ = Screen::Timer; break;
         case 4: settingsSel_ = 0; screen_ = Screen::Settings; break;
         case 5: screen_ = Screen::About; break;
-        case 6:
-            musicSel_ = musicIndex() >= 0 ? musicIndex() : 0;
-            musicScroll_ = 0;
-            screen_ = Screen::Music;
-            break;
-        case 7: openMemo(); break;
+        case 6: openMemo(); break;
     }
 }
 
@@ -1398,29 +1371,6 @@ void Ui::handleKeys()
         }
         case Screen::About: {
             if (ks.esc || ks.enter) gotoHome();
-            break;
-        }
-        case Screen::Music: {
-            int count = musicCount();
-            if (count > 0) {
-                if (navUp && musicSel_ > 0) musicSel_--;
-                if (navDown && musicSel_ + 1 < count) musicSel_++;
-                if (navLeft) {
-                    musicPrev();
-                    if (musicIndex() >= 0) musicSel_ = musicIndex();
-                }
-                if (navRight) {
-                    musicNext();
-                    if (musicIndex() >= 0) musicSel_ = musicIndex();
-                }
-                if (ks.enter) {
-                    if (musicIndex() == musicSel_)
-                        musicTogglePlay();
-                    else
-                        musicPlay(musicSel_);
-                }
-            }
-            if (ks.esc) gotoHome();
             break;
         }
         case Screen::Memo: {

@@ -11,7 +11,6 @@ import '../widgets/pixel_ui.dart';
 import 'about_screen.dart';
 import 'device_screen.dart';
 import 'homework_screen.dart';
-import 'music_screen.dart';
 import 'notes_screen.dart';
 import 'settings_screen.dart';
 
@@ -50,7 +49,7 @@ class _HomeShellState extends State<HomeShell> {
             content: Text('Nexo ${upd.available!.version} is available'),
             action: SnackBarAction(
               label: 'Details',
-              onPressed: () => setState(() => _index = 5), // About tab
+              onPressed: () => setState(() => _index = 4), // About tab
             ),
           ),
         );
@@ -60,7 +59,6 @@ class _HomeShellState extends State<HomeShell> {
     const pages = [
       NotesScreen(),
       HomeworkScreen(),
-      MusicScreen(),
       DeviceScreen(),
       SettingsScreen(),
       AboutScreen(),
@@ -95,11 +93,6 @@ class _HomeShellState extends State<HomeShell> {
                   icon: Icon(Icons.school_outlined),
                   selectedIcon: Icon(Icons.school),
                   label: Text('Homework'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.music_note_outlined),
-                  selectedIcon: Icon(Icons.music_note),
-                  label: Text('Music'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.bluetooth_outlined),
@@ -144,11 +137,6 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icon(Icons.school_outlined),
               selectedIcon: Icon(Icons.school),
               label: 'Homework',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.music_note_outlined),
-              selectedIcon: Icon(Icons.music_note),
-              label: 'Music',
             ),
             NavigationDestination(
               icon: Icon(Icons.bluetooth_outlined),

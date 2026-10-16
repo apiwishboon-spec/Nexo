@@ -19,7 +19,7 @@ constexpr size_t kMaxPinLen = 16;
 constexpr size_t kMinPinLen = 4;
 constexpr size_t kMaxTrackNameLen = 96;
 constexpr uint16_t kProtocolVersion = 2;
-constexpr const char* kNexoVersion = "2.2.4";
+constexpr const char* kNexoVersion = "2.2.5";
 
 // Homework status
 enum class HomeworkStatus : uint8_t {

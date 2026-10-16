@@ -45,6 +45,34 @@ class UpdatePanel extends StatelessWidget {
                   color: scheme.onSurfaceVariant),
             )
           else ...[
+            if (u.needsRelocation)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: PixelPanel(
+                  accent: NexoColors.error,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nexo is running from a temporary macOS location, so it '
+                        'cannot update itself. Move it to /Applications — tap '
+                        'below and it will restart in the right place.',
+                        style: TextStyle(
+                          fontFamily: kFontBody,
+                          fontSize: 18,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        onPressed: () => u.relocate(),
+                        icon: const Icon(Icons.drive_file_move),
+                        label: const Text('Move to /Applications & restart'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
