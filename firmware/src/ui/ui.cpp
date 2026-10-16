@@ -52,7 +52,7 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
     ble_ = ble;
     wifi_ = wifi;
     menuItems_ = {"Quick Notes", "Homework", "Calculator", "Timer",
-                  "Settings",   "About",   "Memos"};
+                  "Memos",      "Settings", "About"};
     screen_ = Screen::Splash;
     splashUntil_ = millis() + 1600;
     sel_ = 0;
