@@ -314,6 +314,13 @@ class MusicTrack {
   MusicTrack(this.name, this.size);
 }
 
+/// A voice memo stored on the device's SD card (`/memos`).
+class MemoItem {
+  String name;
+  int size;
+  MemoItem(this.name, this.size);
+}
+
 class MusicStatus {
   int index;
   bool playing;

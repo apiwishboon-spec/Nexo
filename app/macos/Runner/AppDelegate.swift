@@ -1,9 +1,11 @@
 import Cocoa
 import FlutterMacOS
+import Speech
 
 @main
 class AppDelegate: FlutterAppDelegate {
   private let updaterChannelName = "com.nexo.nexo_app/updater"
+  private let speechChannelName = "com.nexo.nexo_app/speech"
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return true
@@ -54,6 +56,147 @@ class AppDelegate: FlutterAppDelegate {
         result(FlutterMethodNotImplemented)
       }
     }
+
+    let speech = FlutterMethodChannel(
+      name: speechChannelName,
+      binaryMessenger: controller.engine.binaryMessenger
+    )
+    speech.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "transcribeFile":
+        guard let args = call.arguments as? [String: Any],
+          let path = args["path"] as? String
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing path", details: nil))
+          return
+        }
+        self?.transcribe(path: path, result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  // MARK: - Speech (voice-memo transcription)
+
+  /// Transcribes a 16 kHz mono WAV voice memo using Apple's on-device / server
+  /// speech recognition. SFSpeechURLRecognitionRequest only handles ~1 minute
+  /// per call, so the WAV is split into short chunks that are recognised in
+  /// order and stitched back together.
+  private func transcribe(path: String, result: @escaping FlutterResult) {
+    guard let data = FileManager.default.contents(atPath: path) else {
+      result(FlutterError(code: "not_found", message: "No audio file", details: nil))
+      return
+    }
+    let headerSize = 44
+    guard data.count > headerSize else {
+      result("")
+      return
+    }
+    let header = data.subdata(in: 0..<headerSize)
+    let body = data.subdata(in: headerSize..<data.count)
+    let sampleRate = Int(readU32(header, 24))
+    let channels = max(1, Int(readU16(header, 22)))
+    let bits = max(8, Int(readU16(header, 34)))
+    let frameBytes = max(1, channels * (bits / 8))
+    let rate = sampleRate > 0 ? sampleRate : 16000
+    let chunkBytes = max(frameBytes, rate * frameBytes * 45)  // ~45 s of audio
+
+    SFSpeechRecognizer.requestAuthorization { status in
+      guard status == .authorized else {
+        DispatchQueue.main.async {
+          result(FlutterError(
+            code: "denied",
+            message: "Speech recognition is not authorized (System Settings ▸ Privacy).",
+            details: nil))
+        }
+        return
+      }
+      guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+        DispatchQueue.main.async {
+          result(FlutterError(
+            code: "unavailable",
+            message: "Speech recognition is unavailable right now.",
+            details: nil))
+        }
+        return
+      }
+
+      let tmp = FileManager.default.temporaryDirectory
+        .appendingPathComponent("nexo-speech-\(UUID().uuidString)")
+      try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+      var urls: [URL] = []
+      var offset = 0
+      var n = 0
+      while offset < body.count {
+        let end = min(offset + chunkBytes, body.count)
+        let chunk = body.subdata(in: offset..<end)
+        let url = tmp.appendingPathComponent("chunk-\(n).wav")
+        if self.writeWavChunk(header: header, body: chunk, to: url) {
+          urls.append(url)
+        }
+        offset = end
+        n += 1
+      }
+      guard !urls.isEmpty else {
+        DispatchQueue.main.async { result("") }
+        return
+      }
+      self.recognize(
+        urls: urls, index: 0, acc: "", recognizer: recognizer, tmp: tmp, result: result)
+    }
+  }
+
+  private func recognize(
+    urls: [URL], index: Int, acc: String, recognizer: SFSpeechRecognizer,
+    tmp: URL, result: @escaping FlutterResult
+  ) {
+    if index >= urls.count {
+      try? FileManager.default.removeItem(at: tmp)
+      let text = acc.trimmingCharacters(in: .whitespacesAndNewlines)
+      DispatchQueue.main.async { result(text) }
+      return
+    }
+    let request = SFSpeechURLRecognitionRequest(url: urls[index])
+    request.shouldReportPartialResults = false
+    recognizer.recognitionTask(with: request) { res, error in
+      if let res = res, res.isFinal {
+        let part = res.bestTranscription.formattedString
+        let merged = acc.isEmpty ? part : acc + " " + part
+        self.recognize(
+          urls: urls, index: index + 1, acc: merged, recognizer: recognizer, tmp: tmp, result: result)
+      } else if let error = error {
+        try? FileManager.default.removeItem(at: tmp)
+        if acc.isEmpty {
+          DispatchQueue.main.async {
+            result(FlutterError(
+              code: "failed", message: error.localizedDescription, details: nil))
+          }
+        } else {
+          DispatchQueue.main.async { result(acc) }
+        }
+      }
+    }
+  }
+
+  private func readU32(_ d: Data, _ o: Int) -> UInt32 {
+    return UInt32(d[o]) | (UInt32(d[o + 1]) << 8) | (UInt32(d[o + 2]) << 16)
+      | (UInt32(d[o + 3]) << 24)
+  }
+
+  private func readU16(_ d: Data, _ o: Int) -> UInt16 {
+    return UInt16(d[o]) | (UInt16(d[o + 1]) << 8)
+  }
+
+  private func writeWavChunk(header: Data, body: Data, to url: URL) -> Bool {
+    var h = header
+    let dataLen = UInt32(body.count)
+    let riffLen = UInt32(36) + dataLen
+    h.replaceSubrange(4..<8, with: withUnsafeBytes(of: riffLen.littleEndian) { Data($0) })
+    h.replaceSubrange(40..<44, with: withUnsafeBytes(of: dataLen.littleEndian) { Data($0) })
+    var out = h
+    out.append(body)
+    return (try? out.write(to: url)) != nil
   }
 
   // MARK: - Self-update

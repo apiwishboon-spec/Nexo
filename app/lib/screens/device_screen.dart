@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/pixel_pet.dart';
 import '../widgets/pixel_ui.dart';
+import 'memos_screen.dart';
 
 class DeviceScreen extends StatefulWidget {
   const DeviceScreen({super.key});
@@ -176,6 +177,8 @@ class _DeviceScreenState extends State<DeviceScreen> {
           if (app.connState != NexoConnState.disconnected) ...[
             _detailsCard(app, scheme),
             const SizedBox(height: 16),
+            _memosCard(app, scheme),
+            const SizedBox(height: 16),
             _syncCard(app, scheme),
             const SizedBox(height: 16),
             _logsCard(app, scheme),
@@ -330,6 +333,27 @@ class _DeviceScreenState extends State<DeviceScreen> {
                 style: const TextStyle(fontFamily: kFontBody, fontSize: 18)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _memosCard(AppState app, ColorScheme scheme) {
+    final ready = app.connState == NexoConnState.ready;
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.mic, color: scheme.primary),
+        title: const Text('Voice memos'),
+        subtitle: Text(
+          ready
+              ? 'Listen to, save and transcribe memos from the SD card'
+              : 'Connect to the device to load memos',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: ready
+            ? () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MemosScreen()),
+                )
+            : null,
       ),
     );
   }

@@ -70,6 +70,11 @@ private:
     void handleMusicUploadDone();
     void handleMusicUploadStream();
 
+    // Voice memos (list + download the 16 kHz WAVs from the SD card).
+    void handleMemoList();
+    void handleMemoDownload();
+    void handleMemoDelete();
+
     // Over-the-air firmware update (raw image streamed to the OTA partition).
     void handleOtaDone();
     void handleOtaStream();

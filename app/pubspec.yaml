@@ -1,7 +1,7 @@
 name: nexo_app
 description: "Nexo companion app: manage Cardputer notes, homework and music over BLE and Wi-Fi."
 publish_to: 'none'
-version: 2.2.5+9
+version: 2.2.6+10
 
 environment:
   sdk: ^3.13.5
@@ -22,6 +22,10 @@ dependencies:
   path_provider: ^2.1.6
   url_launcher: ^6.3.3
   pub_semver: ^2.2.1
+  # Play voice memos downloaded from the device.
+  just_audio: ^0.10.6
+  # Hand a memo to the OS share sheet (e.g. a transcription app on Android).
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:

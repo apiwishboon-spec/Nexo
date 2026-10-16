@@ -328,6 +328,9 @@ void WifiAccess::setupRoutes()
     server_->on("/api/music/control", HTTP_POST, [this]() { handleMusicControl(); });
     server_->on("/api/music/delete", HTTP_POST, [this]() { handleMusicDelete(); });
     server_->on("/api/music/file", HTTP_GET, [this]() { handleMusicDownload(); });
+    server_->on("/api/memos", HTTP_GET, [this]() { handleMemoList(); });
+    server_->on("/api/memos/file", HTTP_GET, [this]() { handleMemoDownload(); });
+    server_->on("/api/memos/delete", HTTP_POST, [this]() { handleMemoDelete(); });
     server_->on("/api/ota", HTTP_POST, [this]() { handleOtaDone(); },
                 [this]() { handleOtaStream(); });
     server_->onNotFound([this]() {
@@ -652,6 +655,62 @@ void WifiAccess::handleMusicDelete()
         return;
     }
     bool ok = musicDelete(name.c_str());
+    sendJson(ok ? 200 : 404, ok ? "{\"ok\":true}" : "{\"error\":\"not found\"}");
+}
+
+void WifiAccess::handleMemoList()
+{
+    if (!requireAuth()) return;
+    JsonDocument doc;
+    JsonArray arr = doc["items"].to<JsonArray>();
+    for (int i = 0; i < memoCount(); i++) {
+        JsonObject o = arr.add<JsonObject>();
+        o["name"] = memoTitle(i);
+        o["size"] = memoSize(i);
+    }
+    std::string out;
+    serializeJson(doc, out);
+    sendJson(200, out);
+}
+
+void WifiAccess::handleMemoDownload()
+{
+    if (!requireAuth()) return;
+    int idx = server_->arg("i").toInt();
+    if (idx < 0 || idx >= memoCount()) {
+        sendJson(400, "{\"error\":\"bad index\"}");
+        return;
+    }
+    String path = String("/memos/") + memoTitle(idx);
+    File f = SD.open(path, FILE_READ);
+    if (!f) {
+        sendJson(404, "{\"error\":\"not found\"}");
+        return;
+    }
+    server_->streamFile(f, "audio/wav", 200);
+    f.close();
+}
+
+void WifiAccess::handleMemoDelete()
+{
+    if (!requireAuth()) return;
+    if (server_->arg("plain").length() > 512) {
+        sendJson(413, "{\"error\":\"too large\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, server_->arg("plain"))) {
+        sendJson(400, "{\"error\":\"bad json\"}");
+        return;
+    }
+    int idx = doc["i"] | -1;
+    String name = String((const char*)(doc["name"] | ""));
+    if (idx < 0 && name.length() > 0) {
+        for (int i = 0; i < memoCount(); ++i) {
+            if (name == memoTitle(i)) { idx = i; break; }
+        }
+    }
+    bool ok = idx >= 0 && memoDelete(idx);
     sendJson(ok ? 200 : 404, ok ? "{\"ok\":true}" : "{\"error\":\"not found\"}");
 }
 
