@@ -7,6 +7,11 @@
 
 uint32_t millis();
 
+// Host-test instrumentation: counts full-screen clears and rect fills so the
+// render tests can prove animation frames no longer clear the panel.
+inline unsigned long& fillScreenCount() { static unsigned long n = 0; return n; }
+inline unsigned long& fillRectCount() { static unsigned long n = 0; return n; }
+
 class FakeDisplay {
 public:
     static const int W = 240;
@@ -23,11 +28,13 @@ public:
     }
 
     void fillScreen(uint32_t c) {
+        ++fillScreenCount();
         uint16_t v = (uint16_t)c;
         for (int i = 0; i < W * H; ++i) fb[i] = v;
     }
 
     void fillRect(int x, int y, int w, int h, uint32_t c) {
+        ++fillRectCount();
         for (int j = 0; j < h; ++j)
             for (int i = 0; i < w; ++i) put(x + i, y + j, (uint16_t)c);
     }

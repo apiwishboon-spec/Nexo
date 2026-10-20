@@ -394,19 +394,50 @@ static const char* const kOwlArt[kArtH] = {
 
 }  // namespace
 
-void Ui::drawCharacter(int x, int y, int w, int h)
+void Ui::characterGeometry(int x, int y, int w, int h, int& bx, int& by)
 {
-    int bx = x + (w - kArtW * kArtScale) / 2;
+    bx = x + (w - kArtW * kArtScale) / 2;
     // Bob: alternate 0/1 px every ~1.4 s (frames 0-19 down, 20-39 up).
     uint32_t frame = (millis() / 700u) % 40u;
     int bob = (frame < 20u) ? 0 : 1;
-    int by = y + (h - kArtH * kArtScale) / 2 + bob;
+    by = y + (h - kArtH * kArtScale) / 2 + bob;
+}
+
+void Ui::drawCharacter(int x, int y, int w, int h)
+{
+    int bx, by;
+    characterGeometry(x, y, w, h, bx, by);
+    uint32_t frame = (millis() / 700u) % 40u;
     bool owl = homeChar_ == 1;
     blitArt(owl ? kOwlArt : kCatArt, bx, by, owl ? 1 : 0);
     if (frame >= 38u) {  // brief blink near the end of each ~28 s cycle
         if (owl) blinkOwl(bx, by);
         else blinkCat(bx, by);
     }
+    petBob_ = by - (y + (h - kArtH * kArtScale) / 2);
+}
+
+// Animation frames must not call draw(): that clears the whole panel and
+// redraws every widget, which the user sees as the screen flashing. Clear only
+// the 1 px strip exposed by the vertical shift, then overdraw the sprite.
+void Ui::drawHomeCharacterFrame()
+{
+    auto& d = M5Cardputer.Display;
+    const int top = kContentTop;
+    const int bottom = kContentBottom;
+    const int leftX = kPad;
+    const int leftW = 86;
+    int bx, by;
+    characterGeometry(leftX, top, leftW, bottom - top, bx, by);
+    int bob = by - (top + (bottom - top - kArtH * kArtScale) / 2);
+    if (petBob_ >= 0 && bob != petBob_) {
+        if (bob > petBob_) {
+            d.fillRect(bx, by - 1, kArtW * kArtScale, 1, kBackground);
+        } else {
+            d.fillRect(bx, by + kArtH * kArtScale, kArtW * kArtScale, 1, kBackground);
+        }
+    }
+    drawCharacter(leftX, top, leftW, bottom - top);
 }
 
 void Ui::drawCheckbox(int x, int y, bool done)
@@ -694,6 +725,39 @@ void Ui::drawMemo()
     char _f[40];
     snprintf(_f, sizeof(_f), "R rec  ENTER play  DEL del  %d/%d", memoSel_ + 1, count);
     d.print(_f);
+}
+
+// Incremental repaint for the memo screen's live parts: the blinking REC dot
+// and elapsed time while recording, or the "playing" row during playback.
+// A full draw() here would clear and redraw the whole panel every 300-500 ms.
+void Ui::drawMemoLive()
+{
+    auto& d = M5Cardputer.Display;
+    if (memoRecording()) {
+        bool on = ((millis() / 500) % 2) == 0;
+        d.fillRect(kPad, kContentTop + 3, 12, 12, kBackground);
+        d.fillCircle(kPad + 5, kContentTop + 8, 4, on ? kError : kSurfaceVariant);
+        char buf[12];
+        uint32_t s = memoSeconds();
+        snprintf(buf, sizeof(buf), "%02u:%02u", (unsigned)(s / 60), (unsigned)(s % 60));
+        d.fillRect(kW - 72, kContentTop, 64, 20, kBackground);
+        d.setTextSize(2);
+        d.setTextColor(kOnSurface, kBackground);
+        d.setCursor(kW - 70, kContentTop + 2);
+        d.print(buf);
+        d.setTextSize(1);
+        return;
+    }
+    if (!memoPlaying()) return;
+    int count = memoCount();
+    if (count < 1) return;
+    int idx = memoIndex();
+    if (idx < memoScroll_ || idx >= memoScroll_ + 4 || idx >= count) return;
+    int y = kContentTop + (idx - memoScroll_) * 18;
+    char p[24];
+    snprintf(p, sizeof(p), "playing %u:%02u", (unsigned)(memoPositionSec() / 60),
+             (unsigned)(memoPositionSec() % 60));
+    drawListRow(y, 18, memoTitle(idx), p, idx == memoSel_);
 }
 
 void Ui::drawClock()
@@ -1512,7 +1576,7 @@ void Ui::loop()
         if (frame != petFrame_) {
             petFrame_ = frame;
             petDrawAt_ = millis();
-            draw();
+            drawHomeCharacterFrame();
         }
     }
     if (screen_ == Screen::Memo && !asleep_) {
@@ -1520,11 +1584,11 @@ void Ui::loop()
             memoRecordTick();  // stream mic -> SD
             if (millis() - memoRedrawAt_ > 300u) {
                 memoRedrawAt_ = millis();
-                draw();
+                drawMemoLive();
             }
         } else if (memoPlaying() && millis() - memoRedrawAt_ > 500u) {
             memoRedrawAt_ = millis();
-            draw();
+            drawMemoLive();
         }
     }
     updatePower();

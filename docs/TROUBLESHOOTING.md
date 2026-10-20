@@ -46,6 +46,24 @@ persistence and notifications from `BleService::loop()` on the Arduino task.
 When extending the firmware: never touch `repo()`, `persist*()` or a
 characteristic's `notify()` from a NimBLE callback — hand the work to `loop()`.
 
+### Screen flashes during animations (Home character, memo recording)
+
+**Symptom:** the whole display blanks/repaints about twice a second while the
+Home character animates, or about three times a second while recording a memo.
+
+**Cause:** older firmware called `Ui::draw()`, which begins with
+`fillScreen()`, on every animation frame. Throttling the frame rate (v2.2.4)
+made it less frequent but never removed the full clear.
+
+**Fixed in v2.3.3:** animation frames now use incremental repaints —
+`drawHomeCharacterFrame()` clears only the one-pixel strip exposed by the bob,
+and `drawMemoLive()` repaints only the REC dot / elapsed time or the playing
+row. The host test `firmware/tools/preview/build_render_test.sh` asserts that
+these paths perform zero full-screen clears; keep it green when changing the UI.
+
+If you still see flashing on v2.3.3+, check that you flashed the matching
+firmware (`Settings → About` shows the version) and not an older app image.
+
 ### Battery level
 
 The header battery indicator reads the Cardputer's GPIO10 ADC through

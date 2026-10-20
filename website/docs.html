@@ -72,8 +72,8 @@ flutter build apk --release --target-platform android-arm64</code></pre>
           <li><strong>Audio:</strong> ES8311 codec over I²C, I²S to the speaker
             (AMP_EN on GPIO46).</li>
           <li><strong>Display:</strong> 240×135 ST7789.</li>
-          <li><strong>Storage:</strong> microSD for music, LittleFS on flash for
-            notes, homework and settings.</li>
+          <li><strong>Storage:</strong> microSD for voice memos, LittleFS on
+            flash for notes, homework and settings.</li>
         </ul>
 
         <h2>Protocol at a glance</h2>
@@ -84,8 +84,8 @@ flutter build apk --release --target-platform android-arm64</code></pre>
           <li>Notes &amp; homework CRUD with revisions, tombstones and delta sync.</li>
           <li>Device info, time sync (the Cardputer has no RTC), find / reboot /
             factory reset.</li>
-          <li>Music list, playback control, now-playing and delete.</li>
-          <li>Optional Wi-Fi HTTP API for bulk music transfer and OTA updates.</li>
+          <li>Music metadata and playback control (files move over Wi-Fi).</li>
+          <li>Optional Wi-Fi HTTP API for bulk transfers and OTA updates.</li>
         </ul>
         <p class="muted">See <a href="https://github.com/apiwishboon-spec/Nexo/blob/main/docs/PROTOCOL.md">docs/PROTOCOL.md</a>
           for the full specification.</p>

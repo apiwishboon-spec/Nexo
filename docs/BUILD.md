@@ -104,6 +104,10 @@ real `src/ui/ui.cpp` against a fake M5Cardputer display:
 # One-off PNG renders of every screen (needs clang++ + Pillow).
 bash firmware/tools/preview/build_preview.sh
 
+# Host UI regression tests (also run in CI).
+bash firmware/tools/preview/build_nav_test.sh     # menu row -> screen mapping
+bash firmware/tools/preview/build_render_test.sh  # no full-screen clears while animating
+
 # Interactive Tk emulator (needs python3 with tkinter).
 bash firmware/tools/preview/emu.sh
 
@@ -119,8 +123,9 @@ rebuilds and commits it whenever the shared UI changes.
 Cheap, slow work (PlatformIO builds, Flutter analyze/test, release builds) runs
 on GitHub Actions so it does not tie up a local machine.
 
-- **`ci.yml`** — on pushes to `main` and pull requests: firmware host unit tests
-  + firmware build, and `flutter analyze` + `flutter test`.
+- **`ci.yml`** — on pushes to `main` and pull requests: firmware host unit tests,
+  the two host UI tests above, firmware build, and `flutter analyze` +
+  `flutter test`.
 - **`release.yml`** — on a `v*` tag (or manual dispatch): builds all three
   artifacts and publishes a GitHub Release. The `FLUTTER_VERSION` env in both
   workflows pins the SDK version.

@@ -69,6 +69,9 @@ private:
     void drawWifiScan();
     void drawSpam(bool ble);
     void drawCharacter(int x, int y, int w, int h);
+    void characterGeometry(int x, int y, int w, int h, int& bx, int& by);
+    void drawHomeCharacterFrame();  // incremental repaint (no full-screen clear)
+    void drawMemoLive();            // incremental repaint for REC/playback
     void drawCheckbox(int x, int y, bool done);
     void toast();
     void wrappedText(const std::string& text, int x, int y, int w, int maxLines);
@@ -167,6 +170,7 @@ private:
     Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
     uint32_t petDrawAt_ = 0;
     uint32_t petFrame_ = 0xFFFFFFFFu;
+    int petBob_ = -1;    // last bob offset drawn (0/1); -1 = unknown
     uint32_t clockMinute_ = 0xFFFFFFFFu;
 
     // Screensaver + hidden Lab menu.
