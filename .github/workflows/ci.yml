@@ -45,6 +45,9 @@ jobs:
       - name: UI navigation test (host)
         run: bash firmware/tools/preview/build_nav_test.sh
 
+      - name: UI render test (host)
+        run: bash firmware/tools/preview/build_render_test.sh
+
       - name: Build firmware image
         working-directory: firmware
         run: pio run -e m5stack-cardputer

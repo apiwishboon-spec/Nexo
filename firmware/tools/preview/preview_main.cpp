@@ -114,11 +114,6 @@ struct UiPreview {
         u.settingsSel_ = sel;
     }
     static void about(Ui& u) { u.screen_ = Ui::Screen::About; }
-    static void music(Ui& u, int sel) {
-        u.screen_ = Ui::Screen::Music;
-        u.musicSel_ = sel;
-        u.musicScroll_ = 0;
-    }
     static void clearToast(Ui& u) {
         u.toast_.clear();
         u.toastUntil_ = 0;
@@ -201,12 +196,11 @@ int main(int argc, char** argv) {
     jobs.push_back({"10_settings", [&] { UiPreview::settings(ui, 2); UiPreview::draw(ui); }});
     jobs.push_back({"11_about", [&] { UiPreview::about(ui); UiPreview::draw(ui); }});
     jobs.push_back({"12_toast", [&] { UiPreview::home(ui, 5); UiPreview::toast(ui, "Saved to device"); UiPreview::draw(ui); }});
-    jobs.push_back({"13_music", [&] { musicPlay(1); UiPreview::music(ui, 1); UiPreview::draw(ui); }});
-    jobs.push_back({"14_home_cat", [&] { UiPreview::homeChar(ui, 0); UiPreview::draw(ui); }});
-    jobs.push_back({"15_home_kid", [&] { UiPreview::homeChar(ui, 1); UiPreview::draw(ui); }});
-    jobs.push_back({"16_memo_empty", [&] { UiPreview::memo(ui, 0); UiPreview::draw(ui); }});
-    jobs.push_back({"17_memo_rec", [&] { memoRecordStart(); UiPreview::memo(ui, 0); UiPreview::draw(ui); }});
-    jobs.push_back({"18_memo_list", [&] {
+    jobs.push_back({"13_home_cat", [&] { UiPreview::homeChar(ui, 0); UiPreview::draw(ui); }});
+    jobs.push_back({"14_home_kid", [&] { UiPreview::homeChar(ui, 1); UiPreview::draw(ui); }});
+    jobs.push_back({"15_memo_empty", [&] { UiPreview::memo(ui, 0); UiPreview::draw(ui); }});
+    jobs.push_back({"16_memo_rec", [&] { memoRecordStart(); UiPreview::memo(ui, 0); UiPreview::draw(ui); }});
+    jobs.push_back({"17_memo_list", [&] {
                         memoRecordStop();
                         memoRecordStart();
                         memoRecordStop();
@@ -215,7 +209,7 @@ int main(int argc, char** argv) {
                         UiPreview::memo(ui, 1);
                         UiPreview::draw(ui);
                     }});
-    jobs.push_back({"19_settings_char", [&] { UiPreview::settings(ui, 10); UiPreview::draw(ui); }});
+    jobs.push_back({"18_settings_char", [&] { UiPreview::settings(ui, 10); UiPreview::draw(ui); }});
 
     std::filesystem::create_directories(outdir);
     for (auto& [name, fn] : jobs) {

@@ -13,7 +13,7 @@ pushes/pulls changes over a small, documented BLE protocol.
 
 > **Status:** working release, tested on real hardware.
 > Built and flashed to a physical **M5Stack Cardputer-Adv**; boot, the on-device UI,
-> voice memos, music playback, BLE and Wi-Fi features were verified on-device.
+> voice memos, BLE and Wi-Fi features were verified on-device.
 > Native unit tests pass. See `docs/TROUBLESHOOTING.md` for known issues.
 
 <p align="center">
@@ -21,7 +21,7 @@ pushes/pulls changes over a small, documented BLE protocol.
   <img src="docs/images/home-owl.png" alt="Home with the owl" width="320">
 </p>
 
-A few more screens (Notes, Homework, Calculator, Timer, Settings, Music, Memos):
+A few more screens (Notes, Homework, Calculator, Timer, Settings, Memos):
 
 <p align="center">
   <img src="docs/images/contact-sheet.png" alt="Nexo UI screens" width="640">
@@ -58,17 +58,15 @@ Nexo/
 **Cardputer firmware**
 - Notes (title + body) and Homework (subject, description, due date, status).
 - On-device UI: Home, Notes, Note view/edit, Homework, Homework edit,
-  Calculator, Timer, Music, Memos, Settings, About.
+  Calculator, Timer, Memos, Settings, About.
 - Voice memos: record to `/memos` on the SD card as 16 kHz mono WAV and play
   them back right on the device.
 - Home pane shows a little animated 8-bit character (orange cat or owl (8-bit owl)),
   selectable in Settings.
-- MP3/WAV player: drop files in the `/music` folder of the SD card
-  (ESP32-audioI2S + ES8311 codec), plus timer-alarm and UI sound effects.
 - LittleFS persistence with atomic writes.
 - BLE GATT server (NimBLE) implementing the Nexo protocol with PIN auth.
-- Optional Wi-Fi access point serving a built-in web UI (no CDN/cloud),
-  including streaming music upload/download and over-the-air firmware updates.
+- Optional Wi-Fi access point serving a small built-in web UI (no CDN/cloud)
+  plus an HTTP API for bulk transfers and over-the-air firmware updates.
 - Material-3-inspired dark UI tuned for the 240×135 display.
 
 **Companion app**
@@ -78,8 +76,7 @@ Nexo/
 - Sync engine with revisions, tombstones, and conflict resolution.
 - Device dashboard (battery, storage, Wi-Fi, uptime), extended settings with
   live time sync, and find/reboot/factory-reset actions.
-- Music library management: browse, play/pause/seek, set volume, and import
-  tracks over the device's Wi-Fi AP; plus one-tap firmware updates.
+- One-tap firmware updates over the device's Wi-Fi AP.
 - Self-update: checks GitHub Releases on launch and installs a newer build in
   one tap (Android) or one click (macOS).
 - Material 3 (Material You) theming, light/dark, phone and desktop layouts.
