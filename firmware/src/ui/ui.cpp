@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "nexo_calc.h"
+#include "nexo_menu.h"
 #include "hw/audio.h"
 #include "ui/theme.h"
 #include "assets/firmware_logo.h"
@@ -51,8 +52,8 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
     app_ = app;
     ble_ = ble;
     wifi_ = wifi;
-    menuItems_ = {"Quick Notes", "Homework", "Calculator", "Timer",
-                  "Memos",      "Settings", "About"};
+    menuItems_.clear();
+    for (const auto& entry : kMenuEntries) menuItems_.push_back(entry.label);
     screen_ = Screen::Splash;
     splashUntil_ = millis() + 1600;
     sel_ = 0;
@@ -861,14 +862,19 @@ void Ui::gotoHome()
 
 void Ui::openMenu()
 {
-    switch (sel_) {
-        case 0: openNotes(); break;
-        case 1: openHomework(); break;
-        case 2: calcExpr_.clear(); calcResult_.clear(); screen_ = Screen::Calculator; break;
-        case 3: screen_ = Screen::Timer; break;
-        case 4: settingsSel_ = 0; screen_ = Screen::Settings; break;
-        case 5: screen_ = Screen::About; break;
-        case 6: openMemo(); break;
+    if (sel_ < 0 || sel_ >= (int)kMenuEntryCount) return;
+    switch (kMenuEntries[sel_].target) {
+        case MenuTarget::Notes: openNotes(); break;
+        case MenuTarget::Homework: openHomework(); break;
+        case MenuTarget::Calculator:
+            calcExpr_.clear();
+            calcResult_.clear();
+            screen_ = Screen::Calculator;
+            break;
+        case MenuTarget::Timer: screen_ = Screen::Timer; break;
+        case MenuTarget::Memos: openMemo(); break;
+        case MenuTarget::Settings: settingsSel_ = 0; screen_ = Screen::Settings; break;
+        case MenuTarget::About: screen_ = Screen::About; break;
     }
 }
 
