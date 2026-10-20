@@ -10,6 +10,7 @@
 
 #include "nexo_codec.h"
 #include "nexo_frame.h"
+#include "nexo_menu.h"
 #include "nexo_calc.h"
 #include "nexo_protocol.h"
 #include "nexo_repository.h"
@@ -643,6 +644,33 @@ void test_service_device_and_music_ops()
     TEST_ASSERT_EQUAL_INT16(1, hooks.lastIndex);
 }
 
+// Menu labels must stay bound to their intended destination regardless of the
+// row order in which they are displayed (issue #1: Settings opened About).
+void test_home_menu_labels_map_to_targets()
+{
+    const std::map<std::string, MenuTarget> expected = {
+        {"Quick Notes", MenuTarget::Notes},
+        {"Homework", MenuTarget::Homework},
+        {"Calculator", MenuTarget::Calculator},
+        {"Timer", MenuTarget::Timer},
+        {"Memos", MenuTarget::Memos},
+        {"Settings", MenuTarget::Settings},
+        {"About", MenuTarget::About},
+    };
+    TEST_ASSERT_EQUAL_UINT32((uint32_t)expected.size(), (uint32_t)kMenuEntryCount);
+
+    std::map<std::string, int> seen;
+    for (size_t i = 0; i < kMenuEntryCount; ++i) {
+        MenuEntry e = kMenuEntries[i];
+        TEST_ASSERT_NOT_NULL(e.label);
+        auto it = expected.find(e.label);
+        TEST_ASSERT_TRUE_MESSAGE(it != expected.end(), "menu label has no expected target");
+        TEST_ASSERT_EQUAL_UINT8((uint8_t)it->second, (uint8_t)e.target);
+        ++seen[e.label];
+    }
+    for (const auto& kv : seen) TEST_ASSERT_EQUAL_INT(1, kv.second);
+}
+
 int main(int, char**)
 {
     UNITY_BEGIN();
@@ -670,5 +698,6 @@ int main(int, char**)
     RUN_TEST(test_device_info_encode_decode);
     RUN_TEST(test_music_status_encode);
     RUN_TEST(test_service_device_and_music_ops);
+    RUN_TEST(test_home_menu_labels_map_to_targets);
     return UNITY_END();
 }
