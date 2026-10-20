@@ -25,11 +25,10 @@ static const int kContentTop = kHeaderH + 3;  // 21
 static const int kContentBottom = kH - 4;
 static const int kRowH = 23;
 
-// Auto-sleep tuning: dim after 15s idle, panel off after 45s. Any key wakes.
-// When the screensaver is enabled the flip clock replaces the dim/sleep path.
-static const uint32_t kDimIdleMs = 15000;
-static const uint32_t kClockIdleMs = 15000;
-static const uint32_t kSleepIdleMs = 45000;
+// Auto-sleep tuning: the active screen dims, then the panel turns off, using the
+// "Screen timeout" setting (0 = never). Any key wakes. With the screensaver on,
+// the flip clock appears halfway through the timeout and also sleeps at the end.
+static const uint32_t kClockIdleMs = 15000;  // used when timeout is "Never"
 static const uint8_t kActiveBrightness = 128;
 static const uint8_t kDimBrightness = 45;
 
@@ -792,7 +791,7 @@ void Ui::drawClock()
 
     static const char* wd[7] = {"Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"};
     std::string line =
-        synced ? (std::string(wd[weekday]) + "  " + dueDayToIso(localDay))
+        synced ? (std::string(wd[weekday]) + "  " + dueDayToIso(localDay + 1))
                : std::string("waiting for time sync");
     d.setTextColor(kOnSurfaceVariant, kBackground);
     d.setCursor((kW - (int)line.size() * 6) / 2, cy + ch + 7);
@@ -981,9 +980,11 @@ void Ui::openLab()
 void Ui::computeDueToday()
 {
     dueToday_.clear();
+    // dueEpochDay is 1-based (1970-01-01 == 1), so shift the local day too.
     uint32_t localDay =
         (uint32_t)((int64_t)app_->now() + (int64_t)app_->settings().timezoneOffsetMin * 60) /
-        86400u;
+            86400u +
+        1u;
     for (const auto& h : app_->repo().homework()) {
         if (h.deleted || h.dueEpochDay == 0) continue;
         if (h.status == HomeworkStatus::Done) continue;
@@ -1147,26 +1148,41 @@ void Ui::noteActivity()
 void Ui::updatePower()
 {
     if (asleep_) return;
-    if (screen_ == Screen::Clock) return;  // the screensaver owns the panel
-    uint32_t idle = millis() - lastActivity_;
+    const uint32_t timeoutSec = app_->settings().screenTimeoutSec;
+    const uint32_t timeoutMs = timeoutSec * 1000u;
+    const uint32_t idle = millis() - lastActivity_;
+
     // With the screensaver on, idle drops into the flip clock instead of a
-    // black screen (except while a lab tool is actively running).
+    // black screen (except while a lab tool is actively running). It appears
+    // halfway through the configured timeout; "Never" keeps the old 15 s.
+    const uint32_t clockAt = timeoutSec ? timeoutMs / 2u : kClockIdleMs;
     if (screensaver_ && screen_ != Screen::Splash && screen_ != Screen::SpamWifi &&
-        screen_ != Screen::SpamBle && idle >= kClockIdleMs) {
+        screen_ != Screen::SpamBle && screen_ != Screen::Clock && idle >= clockAt) {
         prevScreen_ = screen_;
         screen_ = Screen::Clock;
         clockMinute_ = 0xFFFFFFFFu;
+        dimmed_ = false;
+        M5Cardputer.Display.setBrightness(kActiveBrightness);
         dirty_ = true;
-        return;
     }
-    if (idle >= kSleepIdleMs) {
+
+    if (timeoutSec == 0) return;  // "Never": leave the panel on
+
+    if (idle >= timeoutMs) {
+        // Power saving: stop driving the panel; loop() skips all rendering while
+        // asleep. Any key wakes the device.
+        dirty_ = false;
         M5Cardputer.Display.setBrightness(0);
         M5Cardputer.Display.sleep();
         asleep_ = true;
         dimmed_ = false;
-    } else if (idle >= kDimIdleMs && !dimmed_) {
-        M5Cardputer.Display.setBrightness(kDimBrightness);
-        dimmed_ = true;
+    } else {
+        uint32_t dimAt = timeoutMs / 3u;
+        if (dimAt < 4000u) dimAt = 4000u;
+        if (idle >= dimAt && !dimmed_) {
+            M5Cardputer.Display.setBrightness(kDimBrightness);
+            dimmed_ = true;
+        }
     }
 }
 
