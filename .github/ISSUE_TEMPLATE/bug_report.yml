@@ -1,0 +1,107 @@
+---
+name: Bug Report
+description: Report a bug in Nexo
+title: "[Bug]: "
+labels:
+  - bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Nexo!
+        Please remove any personal information (tokens, PINs, logs, screenshots)
+        before posting.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where did the bug happen?
+      options:
+        - Firmware (Cardputer)
+        - macOS app
+        - Android app
+        - Website / emulator
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      description: Only relevant for firmware reports.
+      options:
+        - M5Stack Cardputer
+        - M5Stack Cardputer-Adv
+        - Not device-specific
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: firmware_version
+    attributes:
+      label: Firmware version
+      description: Shown on the device under Settings → About.
+      placeholder: "e.g. v2.3.3"
+    validations:
+      required: false
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: Shown in the app under About.
+      placeholder: "e.g. 2.3.3 (build 17)"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / environment
+      description: For app reports, your OS version. For firmware, how you flashed it (Launcher, esptool, OTA).
+      placeholder: "e.g. macOS 15.1, Android 14, Launcher"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Open...
+        2. Press...
+        3. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Screenshots
+      description: |
+        Remove tokens and personal information before posting. For firmware,
+        `pio device monitor` output is especially helpful (115200 baud).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I removed personal information from logs and screenshots.
+          required: true
