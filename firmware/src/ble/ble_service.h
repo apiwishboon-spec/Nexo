@@ -27,11 +27,10 @@ struct NexoUuids {
     static const char* status() { return "6e65786f-0004-4e58-8000-4e65786f0000"; }
 };
 
-// Multi-client peripheral: several centrals (e.g. a Mac and an Android phone)
-// may stay connected at once. Each connection keeps its own reassembler and MTU;
-// responses are broadcast on the TX characteristic and clients correlate them by
-// request id (unknown ids are ignored). Authentication is shared across links and
-// only cleared when the last central disconnects.
+// Single-client peripheral. TX notifications are broadcast to every connected
+// central and the auth session is global, so allowing a second link makes
+// responses (and auth failures) leak between clients. Advertising stops while a
+// central is connected; extra connection attempts are rejected.
 class BleService : public NimBLEServerCallbacks, public NimBLECharacteristicCallbacks {
 public:
     void begin(NexoApp* app, const std::string& deviceName);
@@ -96,6 +95,7 @@ private:
     portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
 
     volatile uint8_t connCount_ = 0;
+    volatile uint16_t connHandle_ = 0;
     volatile bool pendingDisconnect_ = false;
     volatile bool advDirty_ = false;
     bool statusDirty_ = true;

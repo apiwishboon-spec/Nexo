@@ -65,7 +65,7 @@ void Ui::begin(NexoApp* app, BleService* ble, WifiAccess* wifi)
 void Ui::notify(const std::string& msg)
 {
     toast_ = msg;
-    toastUntil_ = millis() + 2000;
+    toastUntil_ = millis() + 4000;
     dirty_ = true;
 }
 
@@ -397,9 +397,9 @@ static const char* const kOwlArt[kArtH] = {
 void Ui::characterGeometry(int x, int y, int w, int h, int& bx, int& by)
 {
     bx = x + (w - kArtW * kArtScale) / 2;
-    // Bob: alternate 0/1 px every ~1.4 s (frames 0-19 down, 20-39 up).
-    uint32_t frame = (millis() / 700u) % 40u;
-    int bob = (frame < 20u) ? 0 : 1;
+    // Bob: alternate 0/1 px every ~1.4 s (two 700 ms frames per pose).
+    uint32_t tick = millis() / 700u;
+    int bob = (int)((tick / 2u) % 2u);
     by = y + (h - kArtH * kArtScale) / 2 + bob;
 }
 
@@ -1559,9 +1559,21 @@ void Ui::loop()
             alarmUntil_ = 0;
         }
     }
+    // Let toasts expire after their timeout instead of lingering until the next
+    // keypress.
+    if (!toast_.empty() && millis() > toastUntil_) {
+        toast_.clear();
+        if (!asleep_) dirty_ = true;
+    }
     if (dirty_ && !asleep_) draw();
-    // Live-updating screens.
-    if (screen_ == Screen::Timer && timerRunning_ && !asleep_) drawTimer();
+    // Live-updating screens. Throttle the timer/stopwatch: the previous code
+    // repainted the header and time on every loop iteration, hammering the
+    // panel for no visual gain.
+    if (screen_ == Screen::Timer && timerRunning_ && !asleep_ &&
+        millis() - timerRedrawAt_ >= 50u) {
+        timerRedrawAt_ = millis();
+        drawTimer();
+    }
     if (screen_ == Screen::Clock && !asleep_) {
         uint32_t m = app_->now() / 60u;
         if (m != clockMinute_) {

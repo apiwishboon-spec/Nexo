@@ -29,11 +29,13 @@ and a local name `Nexo-XXXX` (XXXX = last two bytes of the device MAC).
 | TX (dev→central)| `6e65786f-0003-4e58-8000-4e65786f0000`   | Notify, Indicate          |
 | Status          | `6e65786f-0004-4e58-8000-4e65786f0000`   | Read, Notify              |
 
-TX is **indicated** (acknowledged) for reliable delivery. If the central does not
-confirm, the device retransmits up to `NEXO_INDICATE_RETRIES` times.
+TX is **notified** (unacknowledged) and responses are correlated by the message
+id. Applications must ignore ids they did not issue.
 
-Multiple centrals may connect at once (up to the NimBLE build limit). Responses
-are broadcast on the TX characteristic and correlated by the message id.
+**One central at a time.** TX notifications are broadcast to every subscriber
+and the device keeps a single authentication session, so the firmware stops
+advertising while a client is connected and rejects additional links. Close
+Nexo on other phones/computers before connecting.
 
 ### Status characteristic (20 bytes, read + notify)
 
@@ -76,7 +78,7 @@ Rules:
 - The receiver appends each chunk at `offset`. When it has assembled
   `total length` bytes for a given `(type, message id)` it emits the message.
 - Out-of-order and duplicate chunks are tolerated (offset-addressed).
-- Messages larger than `NEXO_MAX_MESSAGE` (default 4096 bytes) are rejected with
+- Messages larger than `NEXO_MAX_MESSAGE` (default 8192 bytes) are rejected with
   `ERR_TOO_LARGE`.
 
 The **payload** of a message is opcode-specific.
@@ -332,13 +334,17 @@ disconnects. The PIN is never returned over the read path.
 Stable IDs + per-record `rev` (monotonic) + `updated` (epoch seconds) provide
 conflict detection.
 
-- **Pull.** Client sends `SYNC_PULL(sinceEpoch)`. Device returns every record
-  (including tombstones) with `updated >= sinceEpoch`, paged. Subsequent pages
-  use the `cursor` byte. The client adopts any record newer than its local copy;
-  if the local copy is dirty and the incoming `updated` is newer, the client
-  flags a conflict for the user.
+- **Pull.** Client sends `SYNC_PULL(sinceEpoch, cursor)`. Device returns every
+  record (including tombstones) with `updated >= sinceEpoch`, paged. `cursor`
+  is a page number, not a byte offset; the client must send the **same**
+  `sinceEpoch` for every page and increment only `cursor`. Pages are capped at
+  20 records **and** a byte budget so one page always fits in a message. The
+  client adopts any record newer than its local copy; a dirty local edit is
+  replaced when the incoming `updated` is at least as new (the device version
+  wins).
 - **Push.** Client sends `SYNC_PUSH` with its dirty records, each carrying the
-  `baseRev` it started from. For each record:
+  `baseRev` it started from. Large edits are split into several `SYNC_PUSH`
+  requests so each message fits the frame limit. For each record:
   - `baseRev == 0` → create. Device assigns an id if empty and sets `rev = 1`.
   - `baseRev == server.rev` → update. Device sets `rev = server.rev + 1`.
   - otherwise → **conflict**: the device does not overwrite and returns its
@@ -348,7 +354,11 @@ conflict detection.
   duplicate request ids (at-least-once transport protection).
 - **Commit.** After a successful push the client adopts the returned server
   revisions and marks records clean. Sync is only reported as successful once
-  the `SYNC_PUSH` response (`SyncResult`) has been received and applied.
+  every `SYNC_PUSH` response (`SyncResult`) has been received and applied.
+- **Cursor stability.** The device sorts changed records by `updated` and
+  recomputes page boundaries from live data. The client keeps the epoch from the
+  first response for the next sync, so records changed while paging are fetched
+  again (idempotently) instead of being skipped.
 
 The device has **no RTC**; the app pushes wall-clock time with `SET_TIME` on each
 connect so `updated` timestamps and due dates stay meaningful.

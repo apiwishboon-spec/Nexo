@@ -45,7 +45,7 @@ body:
     attributes:
       label: Firmware version
       description: Shown on the device under Settings → About.
-      placeholder: "e.g. v2.3.3"
+      placeholder: "e.g. v2.3.4"
     validations:
       required: false
 
@@ -54,7 +54,7 @@ body:
     attributes:
       label: App version
       description: Shown in the app under About.
-      placeholder: "e.g. 2.3.3 (build 17)"
+      placeholder: "e.g. 2.3.4 (build 18)"
     validations:
       required: false
 

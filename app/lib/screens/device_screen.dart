@@ -62,7 +62,9 @@ class _DeviceScreenState extends State<DeviceScreen> {
     final app = context.read<AppState>();
     final savedPin = await app.savedPin();
     if (!mounted) return;
-    final pinCtrl = TextEditingController(text: savedPin);
+    // First connection: the firmware ships with a known default PIN.
+    final pinCtrl =
+        TextEditingController(text: savedPin.isEmpty ? '123456' : savedPin);
     final pin = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -72,7 +74,10 @@ class _DeviceScreenState extends State<DeviceScreen> {
           autofocus: true,
           obscureText: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'PIN'),
+          decoration: const InputDecoration(
+            labelText: 'PIN',
+            helperText: 'Default is 123456. You can change it in Settings.',
+          ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [

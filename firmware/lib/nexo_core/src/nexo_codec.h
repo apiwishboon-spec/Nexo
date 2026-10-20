@@ -203,6 +203,10 @@ bool decodeNote(ByteReader& r, Note& out, uint32_t& baseRev);
 void encodeHomework(ByteWriter& w, const Homework& h, uint32_t baseRev);
 bool decodeHomework(ByteReader& r, Homework& out, uint32_t& baseRev);
 
+// Encoded size of one record when sent without a baseRev (sync/list pages).
+size_t encodedNoteSize(const Note& n);
+size_t encodedHomeworkSize(const Homework& h);
+
 void encodeSettings(ByteWriter& w, const Settings& s, bool includePin);
 bool decodeSettings(ByteReader& r, Settings& out);
 

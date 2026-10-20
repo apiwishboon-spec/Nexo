@@ -15,7 +15,8 @@ public:
     explicit SyncEngine(Repository& repo) : repo_(repo) {}
 
     // Returns records (incl. tombstones) with updated >= since, sorted by
-    // updated, paged by `cursor` * `pageSize`.
+    // updated, split into deterministic pages using `pageSize` and a byte
+    // budget; `cursor` selects the page number.
     SyncDelta buildDelta(uint32_t since, uint8_t cursor, size_t pageSize);
 
     // Applies a client push. Records carry baseRev in their rev field.

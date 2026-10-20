@@ -11,6 +11,8 @@ import '../protocol/constants.dart';
 import '../protocol/records.dart';
 import '../services/background_keeper.dart';
 import '../storage/local_cache.dart';
+import 'sync_batching.dart';
+import 'sync_paging.dart';
 
 /// Central application state: owns the BLE client, the offline cache, the
 /// in-memory document set, and the sync flow. Exposed via Provider.
@@ -164,7 +166,8 @@ class AppState extends ChangeNotifier {
       await refreshDeviceDetails();
       return true;
     } catch (e) {
-      error = e.toString();
+      error = _friendlyError(e);
+      await _resetBleConnection();
       return false;
     } finally {
       busy = false;
@@ -193,12 +196,30 @@ class AppState extends ChangeNotifier {
       await refreshDeviceDetails();
       return true;
     } catch (e) {
-      error = e.toString();
+      error = _friendlyError(e);
+      // A stale cached PIN would otherwise make every reconnect fail. Forget
+      // it so the next manual connect prompts for the current PIN.
+      if (_isAuthFailure(e)) await _cache.clearPin();
+      await _resetBleConnection();
       return false;
     } finally {
       busy = false;
       _autoReconnecting = false;
       notifyListeners();
+    }
+  }
+
+  bool _isAuthFailure(Object e) {
+    final msg = e.toString();
+    return msg.contains('Unauthorized') || msg.contains('bad pin');
+  }
+
+  /// Leave a half-open link (connected but unauthenticated) so the user can
+  /// scan and retry instead of being stuck on a "Connected" screen.
+  Future<void> _resetBleConnection() async {
+    if (_ble.state == NexoConnState.connected ||
+        _ble.state == NexoConnState.authenticating) {
+      await _ble.disconnect();
     }
   }
 
@@ -219,7 +240,7 @@ class AppState extends ChangeNotifier {
       await _ble.authenticate(pin);
       await _cache.savePin(pin);
     } catch (e) {
-      error = e.toString();
+      error = _friendlyError(e);
       rethrow;
     }
   }
@@ -431,8 +452,15 @@ class AppState extends ChangeNotifier {
   // ---- Settings --------------------------------------------------------------
 
   Future<void> saveSettings(DeviceSettings s) async {
+    final requestedPin = s.pin;
     if (_ble.isReady) {
       final updated = await _ble.putSettings(s);
+      // The device only returns non-secret settings. If the user just changed
+      // the PIN, remember it for the next connection; otherwise reconnect would
+      // keep using the old PIN and fail forever.
+      if (requestedPin != null && requestedPin.isNotEmpty) {
+        await _cache.savePin(requestedPin);
+      }
       settings = DeviceSettings(
         deviceName: updated.deviceName,
         apSsid: updated.apSsid,
@@ -443,7 +471,6 @@ class AppState extends ChangeNotifier {
         screenTimeoutSec: updated.screenTimeoutSec,
         timezoneOffsetMin: updated.timezoneOffsetMin,
         autoAdvanceMusic: updated.autoAdvanceMusic,
-        pin: settings.pin,
       );
       await _cache.saveSettings(settings);
     } else {
@@ -451,6 +478,19 @@ class AppState extends ChangeNotifier {
       await _cache.saveSettings(settings);
     }
     notifyListeners();
+  }
+
+  /// Turn raw protocol errors into something a user can act on.
+  String _friendlyError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('Unauthorized') || msg.contains('bad pin')) {
+      return 'Authentication failed: wrong PIN. The default PIN is 123456; '
+          'if you changed it, enter the new PIN.';
+    }
+    if (msg.contains('Auth locked') || msg.contains('auth locked')) {
+      return 'Too many wrong PIN attempts. Wait 30 seconds, then try again.';
+    }
+    return msg;
   }
 
   // ---- Device management (v2) ------------------------------------------------
@@ -590,43 +630,40 @@ class AppState extends ChangeNotifier {
     final dirtyHw = homework.where((h) => h.dirty).toList();
     if (dirtyNotes.isEmpty && dirtyHw.isEmpty) return;
 
-    final result = await _ble.syncPush(dirtyNotes, dirtyHw);
+    var conflicts = 0;
+    for (final batch in batchSyncPush(dirtyNotes, dirtyHw)) {
+      final result = await _ble.syncPush(batch.notes, batch.homework);
+      conflicts += result.conflicts;
 
-    // Server returns authoritative copies for every pushed record.
-    for (final server in result.notes) {
-      final idx = notes.indexWhere((n) => n.id == server.id);
-      if (idx >= 0) {
-        notes[idx] = server..dirty = false;
-      } else {
-        notes.add(server..dirty = false);
+      // Server returns authoritative copies for every pushed record.
+      for (final server in result.notes) {
+        final idx = notes.indexWhere((n) => n.id == server.id);
+        if (idx >= 0) {
+          notes[idx] = server..dirty = false;
+        } else {
+          notes.add(server..dirty = false);
+        }
+      }
+      for (final server in result.homework) {
+        final idx = homework.indexWhere((h) => h.id == server.id);
+        if (idx >= 0) {
+          homework[idx] = server..dirty = false;
+        } else {
+          homework.add(server..dirty = false);
+        }
       }
     }
-    for (final server in result.homework) {
-      final idx = homework.indexWhere((h) => h.id == server.id);
-      if (idx >= 0) {
-        homework[idx] = server..dirty = false;
-      } else {
-        homework.add(server..dirty = false);
-      }
-    }
-    if (result.conflicts > 0) {
-      toast = '${result.conflicts} conflict(s) resolved to device version';
+    if (conflicts > 0) {
+      toast = '$conflicts conflict(s) resolved to device version';
     }
   }
 
   Future<void> _pullRemote() async {
-    var since = lastSync;
-    var cursor = 0;
-    var guard = 0;
-    while (true) {
-      final delta = await _ble.syncPull(since, cursor);
-      _applyDelta(delta);
-      since = delta.serverEpoch;
-      if (!delta.more) break;
-      cursor++;
-      if (++guard > 1000) break;
-    }
-    lastSync = since;
+    lastSync = await pullAllPages(
+      since: lastSync,
+      fetch: _ble.syncPull,
+      apply: _applyDelta,
+    );
     await _cache.saveLastSync(lastSync);
   }
 

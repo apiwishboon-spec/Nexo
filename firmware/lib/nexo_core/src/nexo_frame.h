@@ -9,7 +9,7 @@
 namespace nexo {
 
 constexpr uint8_t kChunkHeaderLen = 8;
-constexpr size_t kMaxMessage = 4096;
+constexpr size_t kMaxMessage = 8192;
 constexpr uint16_t kMtuCap = 244;
 
 struct Message {

@@ -83,6 +83,9 @@ Nexo/
 
 ## Quick start
 
+**Pairing:** the firmware ships with the default PIN **123456**. Enter it in the
+app on first connect; you can change it later under the app's **Settings** tab.
+
 Build the firmware image (for Launcher or a raw flash):
 
 ```bash

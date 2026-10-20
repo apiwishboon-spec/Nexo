@@ -12,6 +12,19 @@ struct ChangeItem {
     uint32_t updated;
     size_t index;
 };
+
+// Same reasoning as kPageByteBudget in nexo_service.cpp: a page of 20 maximum
+// sized notes is far larger than a protocol message, so pages are bounded by
+// bytes as well as by record count.
+constexpr size_t kPageByteBudget = 3500;
+
+size_t changeItemSize(const ChangeItem& it, const std::vector<Note>& notes,
+                      const std::vector<Homework>& hw)
+{
+    // +1 for the kind byte in SyncDelta::kinds.
+    return 1 + (it.kind == 1 ? encodedNoteSize(notes[it.index])
+                             : encodedHomeworkSize(hw[it.index]));
+}
 }  // namespace
 
 SyncDelta SyncEngine::buildDelta(uint32_t since, uint8_t cursor, size_t pageSize)
@@ -32,8 +45,31 @@ SyncDelta SyncEngine::buildDelta(uint32_t since, uint8_t cursor, size_t pageSize
         return a.index < b.index;
     });
 
-    size_t start = static_cast<size_t>(cursor) * pageSize;
-    size_t end = std::min(items.size(), start + pageSize);
+    // Page boundaries are deterministic for a given data set: walk pageSize and
+    // the byte budget page by page until the requested cursor is reached. The
+    // client advances the cursor by one per response, so both sides agree on
+    // the layout without sending offsets over the wire.
+    size_t start = 0;
+    for (uint8_t p = 0; p < cursor && start < items.size(); ++p) {
+        size_t used = 0, count = 0;
+        while (start < items.size() && count < pageSize) {
+            const size_t size = changeItemSize(items[start], notes, hw);
+            if (count > 0 && used + size > kPageByteBudget) break;
+            used += size;
+            ++count;
+            ++start;
+        }
+    }
+
+    size_t used = 0, count = 0;
+    while (start + count < items.size() && count < pageSize) {
+        const size_t size = changeItemSize(items[start + count], notes, hw);
+        if (count > 0 && used + size > kPageByteBudget) break;
+        used += size;
+        ++count;
+    }
+    const size_t end = start + count;
+
     for (size_t i = start; i < end; ++i) {
         const ChangeItem& it = items[i];
         delta.kinds.push_back(it.kind);

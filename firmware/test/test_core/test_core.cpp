@@ -279,6 +279,71 @@ void test_sync_pull_and_push()
     TEST_ASSERT_EQUAL_STRING("A2", check.title.c_str());
 }
 
+void test_sync_pull_pages_union_all_changes()
+{
+    Fixture f;
+    SyncEngine sync(f.repo);
+    std::vector<std::string> ids;
+    for (int i = 0; i < 45; ++i) {
+        Note n;
+        n.title = "N" + std::to_string(i);
+        Note stored;
+        TEST_ASSERT_EQUAL_UINT8((uint8_t)RepoStatus::Ok,
+                                (uint8_t)f.repo.putNote(n, 0, stored));
+        ids.push_back(stored.id);
+        g_now += 1;
+    }
+
+    // Paging must use the same `since` for every page; the union of pages has
+    // to contain every changed record exactly once.
+    size_t seen = 0;
+    bool more = true;
+    for (uint8_t cursor = 0; more && cursor < 10; ++cursor) {
+        SyncDelta d = sync.buildDelta(0, cursor, 20);
+        more = d.more;
+        size_t docs = d.notes.size() + d.homework.size();
+        TEST_ASSERT_EQUAL_UINT32((uint32_t)docs, (uint32_t)d.kinds.size());
+        for (size_t i = 0; i < d.notes.size(); ++i) {
+            bool found = false;
+            for (const auto& id : ids) {
+                if (id == d.notes[i].id) found = true;
+            }
+            TEST_ASSERT_TRUE(found);
+            ++seen;
+        }
+        if (!more) TEST_ASSERT_EQUAL_UINT32(5, (uint32_t)docs);
+    }
+    TEST_ASSERT_EQUAL_UINT32(45, (uint32_t)seen);
+}
+
+void test_sync_pull_pages_respect_message_size()
+{
+    Fixture f;
+    SyncEngine sync(f.repo);
+    const int count = 10;
+    for (int i = 0; i < count; ++i) {
+        Note n;
+        n.title = "long";
+        n.body = std::string(1000, 'x');
+        Note stored;
+        TEST_ASSERT_EQUAL_UINT8((uint8_t)RepoStatus::Ok,
+                                (uint8_t)f.repo.putNote(n, 0, stored));
+        g_now += 1;
+    }
+
+    size_t seen = 0;
+    bool more = true;
+    for (uint8_t cursor = 0; more && cursor < 50; ++cursor) {
+        SyncDelta d = sync.buildDelta(0, cursor, 20);
+        more = d.more;
+        TEST_ASSERT_LESS_THAN_UINT32(4096, (uint32_t)encodeSyncDelta(d).size());
+        TEST_ASSERT_TRUE(d.notes.size() < 20);
+        TEST_ASSERT_TRUE(d.notes.size() + d.homework.size() > 0);
+        seen += d.notes.size() + d.homework.size();
+    }
+    TEST_ASSERT_EQUAL_UINT32(count, (uint32_t)seen);
+}
+
 void test_sync_conflict_detected()
 {
     Fixture f;
@@ -686,6 +751,8 @@ int main(int, char**)
     RUN_TEST(test_frame_multi_chunk);
     RUN_TEST(test_frame_rejects_oversized);
     RUN_TEST(test_sync_pull_and_push);
+    RUN_TEST(test_sync_pull_pages_union_all_changes);
+    RUN_TEST(test_sync_pull_pages_respect_message_size);
     RUN_TEST(test_sync_conflict_detected);
     RUN_TEST(test_service_requires_auth);
     RUN_TEST(test_service_bad_pin_locks);

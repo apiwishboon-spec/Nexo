@@ -104,6 +104,20 @@ void encodeHomework(ByteWriter& w, const Homework& h, uint32_t baseRev)
     w.u8(kTagEnd);
 }
 
+size_t encodedNoteSize(const Note& n)
+{
+    // Fixed tags/values (48) + str16 id/title/body payloads.
+    return 48 + kIdLen + clampUtf8(n.title, kMaxTitleLen).size() +
+           clampUtf8(n.body, kMaxBodyLen).size();
+}
+
+size_t encodedHomeworkSize(const Homework& h)
+{
+    // Fixed tags/values (55) + str16 id/subject/description payloads.
+    return 55 + kIdLen + clampUtf8(h.subject, kMaxSubjectLen).size() +
+           clampUtf8(h.description, kMaxDescLen).size();
+}
+
 bool decodeHomework(ByteReader& r, Homework& out, uint32_t& baseRev)
 {
     baseRev = 0;

@@ -170,6 +170,7 @@ private:
     Screen prevScreen_ = Screen::Home;  // where to return after the screensaver
     uint32_t petDrawAt_ = 0;
     uint32_t petFrame_ = 0xFFFFFFFFu;
+    uint32_t timerRedrawAt_ = 0;
     int petBob_ = -1;    // last bob offset drawn (0/1); -1 = unknown
     uint32_t clockMinute_ = 0xFFFFFFFFu;
 

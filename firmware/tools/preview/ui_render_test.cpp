@@ -31,6 +31,7 @@ struct UiPreview {
         u.homeChar_ = 0;
         u.dirty_ = true;
     }
+    static int bob(Ui& u) { return u.petBob_; }
     static void memo(Ui& u) {
         u.screen_ = Ui::Screen::Memo;
         u.memoSel_ = 0;
@@ -89,6 +90,21 @@ int main() {
     unsigned long homeRects = fillRectCount() - fr;
     expectNoFullClear("home character animation", homeClears);
     expectRedraw("home character animation", homeRects);
+
+    // The character must actually bob. It used to change pose only every 14 s,
+    // which looked static. Allow 3 s for at least one pose change.
+    const int startBob = UiPreview::bob(ui);
+    bool moved = false;
+    for (const uint32_t end = g_now + 3000; g_now <= end; ++g_now) {
+        ui.loop();
+        if (UiPreview::bob(ui) != startBob) moved = true;
+    }
+    if (!moved) {
+        std::fprintf(stderr, "FAIL: home character did not move within 3 s\n");
+        ++failures;
+    } else {
+        std::printf("ok: home character bobs within 3 s\n");
+    }
 
     // ---- Memo recording animation -----------------------------------------
     ui.begin(&app, &ble, &wifi);

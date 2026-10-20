@@ -113,6 +113,11 @@ class LocalCache {
     await p.setString(_kPin, pin);
   }
 
+  Future<void> clearPin() async {
+    final p = await _prefs;
+    await p.remove(_kPin);
+  }
+
   Future<String?> loadDeviceId() async {
     final p = await _prefs;
     return p.getString(_kDeviceId);

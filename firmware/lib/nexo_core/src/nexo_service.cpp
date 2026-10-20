@@ -7,6 +7,9 @@
 namespace nexo {
 
 static const size_t kPageSize = 20;  // records per LIST_* page
+// Keep a page comfortably below kMaxMessage so large notes cannot make the
+// whole response unreadable (and therefore unsyncable).
+static const size_t kPageByteBudget = 3500;
 static const uint8_t kMaxFailBeforeLock = 5;
 static const uint32_t kLockSeconds = 30;
 
@@ -133,7 +136,7 @@ Message NexoService::handle(const Message& req)
             if (!r.u16(offset) || !r.u16(limit)) return makeResponse(req, ST_BAD_REQUEST);
             if (limit == 0 || limit > 100) limit = 100;
             NoteBatch batch;
-            size_t seen = 0, emitted = 0;
+            size_t seen = 0, emitted = 0, used = 3;  // count + more flag
             for (const auto& n : repo_.notes()) {
                 if (n.deleted) continue;
                 if (seen++ < offset) continue;
@@ -141,7 +144,13 @@ Message NexoService::handle(const Message& req)
                     batch.more = true;
                     break;
                 }
+                const size_t size = encodedNoteSize(n);
+                if (emitted > 0 && used + size > kPageByteBudget) {
+                    batch.more = true;
+                    break;
+                }
                 batch.items.push_back(n);
+                used += size;
                 ++emitted;
             }
             return makeResponse(req, ST_OK, encodeNoteBatch(batch));
@@ -189,7 +198,7 @@ Message NexoService::handle(const Message& req)
             if (!r.u16(offset) || !r.u16(limit)) return makeResponse(req, ST_BAD_REQUEST);
             if (limit == 0 || limit > 100) limit = 100;
             HomeworkBatch batch;
-            size_t seen = 0, emitted = 0;
+            size_t seen = 0, emitted = 0, used = 3;  // count + more flag
             for (const auto& h : repo_.homework()) {
                 if (h.deleted) continue;
                 if (seen++ < offset) continue;
@@ -197,7 +206,13 @@ Message NexoService::handle(const Message& req)
                     batch.more = true;
                     break;
                 }
+                const size_t size = encodedHomeworkSize(h);
+                if (emitted > 0 && used + size > kPageByteBudget) {
+                    batch.more = true;
+                    break;
+                }
                 batch.items.push_back(h);
+                used += size;
                 ++emitted;
             }
             return makeResponse(req, ST_OK, encodeHomeworkBatch(batch));

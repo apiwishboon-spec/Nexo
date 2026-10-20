@@ -83,16 +83,25 @@ uint16_t BleService::mtuPayload(uint16_t conn) const
 void BleService::onConnect(NimBLEServer* server, ble_gap_conn_desc* desc)
 {
     const uint16_t conn = desc->conn_handle;
-    peerAddr_ = NimBLEAddress(desc->peer_id_addr).toString();
     ++connCount_;
+    if (connCount_ > 1 || bulkPaused_) {
+        // TX notifications are broadcast and the auth session is shared, so a
+        // second central would receive another client's responses and could
+        // even inherit its authentication. Reject it.
+        Serial.printf("[ble] reject extra central handle=%u peers=%u\n", conn,
+                      (unsigned)connCount_);
+        server->disconnect(conn);
+        return;
+    }
+    connHandle_ = conn;
+    peerAddr_ = NimBLEAddress(desc->peer_id_addr).toString();
     statusDirty_ = true;
-    // Multi-client: keep advertising so a second central can connect too. NimBLE
-    // stops advertising on its own only once NIMBLE_MAX_CONNECTIONS is reached.
     // Ask for a snappy-but-stable connection interval (15-30 ms, 4 s timeout).
     server->updateConnParams(conn, 12, 24, 0, 400);
-    // The NimBLE host stops advertising once a connection is established, so
-    // restart it here to let a *second* companion app discover and connect.
-    advDirty_ = true;
+    // One client at a time: stop advertising so the device cannot be discovered
+    // while a session is active. Advertising resumes on disconnect.
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    if (adv) adv->stop();
     Serial.printf("[ble] connect handle=%u peers=%u\n", conn, (unsigned)connCount_);
 }
 
@@ -102,13 +111,12 @@ void BleService::onDisconnect(NimBLEServer* server, ble_gap_conn_desc* desc)
     const uint16_t conn = desc ? desc->conn_handle : 0;
     if (connCount_ > 0) --connCount_;
     Serial.printf("[ble] disconnect handle=%u peers=%u\n", conn, (unsigned)connCount_);
-    // Only tear down the shared session (auth) once every central is gone.
+    // Only tear down the shared session (auth) once the central is gone.
     if (connCount_ == 0) {
         peerAddr_.clear();
         pendingDisconnect_ = true;
+        advDirty_ = true;  // advertise again for the next session
     }
-    // Restart advertising (NimBLE also does this via advertiseOnDisconnect).
-    advDirty_ = true;
 }
 
 void BleService::onWrite(NimBLECharacteristic* chr, ble_gap_conn_desc* desc)
@@ -249,7 +257,7 @@ void BleService::loop()
         if (app_) app_->service().onDisconnect();
         statusDirty_ = true;
     }
-    if (advDirty_) {
+    if (advDirty_ && !connected() && !bulkPaused_ && !spamActive_) {
         advDirty_ = false;
         NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
         if (adv && !adv->isAdvertising()) adv->start();
@@ -291,11 +299,9 @@ void BleService::pauseForBulk()
     if (adv) {
         adv->stop();
     }
-    // Drop any active connections to free radio for Wi-Fi bulk transfer.
-    if (server_ && connCount_ > 0) {
-        server_->disconnect(0);
-        pendingDisconnect_ = true;
-    }
+    // Drop the active connection to free radio for Wi-Fi bulk transfer. The
+    // disconnect callback clears the session and re-enables advertising.
+    if (server_ && connCount_ > 0) server_->disconnect(connHandle_);
 }
 
 void BleService::resumeAfterBulk()
@@ -303,7 +309,7 @@ void BleService::resumeAfterBulk()
     if (!bulkPaused_) return;
     bulkPaused_ = false;
     NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-    if (adv) {
+    if (adv && !connected() && !spamActive_) {
         adv->setName(deviceName_);
         adv->start();
     }

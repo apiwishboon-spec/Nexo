@@ -14,7 +14,7 @@ class NexoProtocol {
   static const String statusUuid = '6e65786f-0004-4e58-8000-4e65786f0000';
 
   static const int chunkHeaderLen = 8;
-  static const int maxMessage = 4096;
+  static const int maxMessage = 8192;
 
   // Opcodes
   static const int opPing = 0x01;

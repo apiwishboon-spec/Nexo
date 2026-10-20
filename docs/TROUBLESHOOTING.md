@@ -106,10 +106,15 @@ flutter doctor --android-licenses
 
 ### Connect succeeds but requests time out
 
-- The device accepts a single BLE client at a time. Disconnect other phones or
-  computers first.
+- The device accepts a single BLE client at a time; it stops advertising while
+  connected and rejects extra links. Close Nexo on other phones/computers (and
+  any stale instance on this machine) before connecting.
 - PIN mismatch returns `UNAUTHORIZED (0x04)`; repeated failures trigger the
   device's auth lock (`LOCKED 0x0A`) for a short cool-down.
+- The firmware's default PIN is **123456** and the app pre-fills it for a new
+  device. If you changed the PIN in the app's Settings tab, the app remembers
+  the new value; if authentication still fails, disconnect, scan again, and
+  enter the current PIN. Factory resetting the device restores `123456`.
 - If you see `Unsupported protocol version`, the app and firmware protocol
   versions differ. Update both (see `docs/PROTOCOL.md`).
 
